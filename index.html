@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L Boss Portfolio & Tools (Cloud Sync)</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f1f5f9; 
+            margin: 0; 
+            padding: 20px;
+            color: #334155;
+            box-sizing: border-box;
+        }
+        
+        .tab-container {
+            display: flex; gap: 10px; margin-bottom: 25px; width: 100%; max-width: 800px;
+            margin-left: auto; margin-right: auto; justify-content: center; flex-wrap: wrap;
+        }
+        .tab-btn {
+            flex: 1; min-width: 150px; padding: 12px 20px; border: none; background-color: #cbd5e1;
+            color: #475569; font-weight: bold; font-size: 16px; border-radius: 8px; cursor: pointer; transition: 0.2s;
+        }
+        .tab-btn.active { background-color: #1e3a8a; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .tab-btn:hover:not(.active) { background-color: #94a3b8; }
+
+        .calculator-wrapper { display: flex; justify-content: center; width: 100%; }
+        .calculator-card { 
+            background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+            width: 100%; max-width: 500px; box-sizing: border-box;
+        }
+        .calculator-card h2 { color: #1e3a8a; text-align: center; margin-bottom: 20px; font-size: 22px; margin-top: 0; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-group { flex: 1; margin-bottom: 15px; }
+        .form-group.full { width: 100%; }
+        .form-group label { display: block; margin-bottom: 5px; color: #333; font-weight: bold; font-size: 13px; }
+        .calculator-card input, .calculator-card select { 
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; 
+        }
+        .calculator-card input:focus, .calculator-card select:focus { outline: none; border-color: #059669; }
+        
+        .result-box { margin-top: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .result-row { background: #f8fafc; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; }
+        .result-row.net { background: #f0fdf4; border: 2px solid #059669; }
+        .result-header { display: flex; justify-content: center; align-items: baseline; gap: 10px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #cbd5e1; }
+        .result-row.net .result-header { border-bottom: 1px solid #a7f3d0; }
+        .result-label { color: #64748b; font-size: 15px; font-weight: bold; }
+        .result-row.net .result-label { color: #047857; }
+        .result-value { font-size: 26px; font-weight: bold; color: #334155; }
+        .result-row.net .result-value { color: #059669; }
+        
+        .cashflow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+        .cashflow-item { background: white; padding: 10px; border-radius: 6px; font-size: 13px; }
+        .cashflow-title { color: #64748b; margin-bottom: 4px; font-size: 12px; }
+        .usd-text { color: #1e3a8a; font-weight: bold; font-size: 15px; }
+        .thb-text { color: #b45309; font-weight: bold; margin-top: 2px; }
+
+        .dashboard-container {
+            max-width: 1300px; margin: 0 auto; background: white; border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 25px; overflow-x: auto;
+        }
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .header-section h2 { color: #1e3a8a; margin: 0; font-size: 24px; }
+        
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; min-width: 1000px; }
+        th, td { border-bottom: 1px solid #e2e8f0; padding: 12px 10px; text-align: left; vertical-align: middle; }
+        th { background-color: #f8fafc; color: #475569; font-size: 13px; font-weight: bold; white-space: nowrap; }
+        .dashboard-container input[type="text"], .dashboard-container input[type="number"], .dashboard-container select {
+            width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; font-size: 14px;
+        }
+        .dashboard-container input:focus, .dashboard-container select:focus { outline: none; border-color: #059669; }
+        input.small-input { width: 90px; }
+        
+        .result-gross { color: #64748b; font-size: 13px; }
+        .result-net { color: #059669; font-weight: bold; font-size: 14px; margin-top: 4px; }
+        .thb-inline { color: #b45309; font-size: 12px; font-weight: bold; margin-left: 3px; }
+        
+        .action-group { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
+        .backup-controls { display: flex; gap: 10px; }
+        .btn-add { background-color: #1e3a8a; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-add:hover { background-color: #1e40af; }
+        .btn-backup { background-color: #059669; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-backup:hover { background-color: #047857; }
+        .btn-restore { background-color: #475569; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-restore:hover { background-color: #334155; }
+        .btn-delete { background-color: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 5px; cursor: pointer; }
+        .btn-delete:hover { background-color: #dc2626; }
+
+        .summary-section {
+            background: #f0fdf4; border: 2px solid #34d399; border-radius: 10px; padding: 20px; margin-top: 20px;
+            display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px; text-align: center;
+        }
+        .summary-box { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
+        .summary-box.highlight { background: #e0f2fe; border: 2px solid #38bdf8; border-radius: 8px; padding: 10px; }
+        .summary-title { color: #047857; font-weight: bold; font-size: 14px; }
+        .summary-value { font-size: 28px; font-weight: bold; color: #064e3b; }
+        .summary-thb { color: #b45309; font-weight: bold; font-size: 18px; }
+
+        .simulator-container {
+            background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            width: 100%; max-width: 900px; box-sizing: border-box; margin: 0 auto;
+        }
+        .simulator-container h2 { color: #1e3a8a; text-align: center; margin-top: 0; margin-bottom: 25px; font-size: 24px; }
+        
+        .global-settings {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; flex-wrap: wrap;
+            background: #eef2ff; padding: 15px; border-radius: 10px; border: 1px solid #c7d2fe;
+        }
+        .global-group { display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        .global-group input { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
+
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        @media (max-width: 600px) { .input-grid { grid-template-columns: 1fr; } }
+        .input-card { background: #f1f5f9; padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0; }
+        .input-card.highlight { background: #eff6ff; border-color: #bfdbfe; }
+        .input-card h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; color: #475569; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; }
+        .input-card.highlight h3 { color: #1d4ed8; border-bottom-color: #93c5fd; }
+        .simulator-container label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: bold; color: #475569; }
+        .simulator-container input, .simulator-container select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 15px; }
+        .simulator-container input:focus, .simulator-container select:focus { outline: none; border-color: #2563eb; }
+
+        .sim-result-section { background: #f0fdf4; border: 2px solid #34d399; border-radius: 10px; padding: 20px; }
+        .result-title { text-align: center; color: #047857; font-size: 18px; font-weight: bold; margin-bottom: 20px; }
+        .comparison-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; text-align: center; }
+        @media (max-width: 600px) { .comparison-grid { grid-template-columns: 1fr; } }
+        .comp-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; }
+        .comp-card.new-total { background: #ecfdf5; border-color: #6ee7b7; transform: scale(1.02); box-shadow: 0 4px 6px rgba(16, 185, 129, 0.1); }
+        .comp-header { font-size: 14px; color: #64748b; font-weight: bold; margin-bottom: 10px; min-height: 20px; }
+        .comp-card.new-total .comp-header { color: #059669; font-size: 15px; }
+        .data-row { margin-bottom: 10px; display: flex; flex-direction: column; }
+        .data-label { font-size: 12px; color: #94a3b8; }
+        .data-value { font-size: 18px; font-weight: bold; color: #334155; }
+        .data-value.money { color: #059669; }
+        .data-value.shares { color: #2563eb; }
+        .data-value.cost { color: #d97706; }
+        .comp-card.new-total .data-value { font-size: 22px; }
+        .monthly-subtext { font-size: 13px; color: #0ea5e9; font-weight: bold; margin-top: 2px; }
+        .comp-card.new-total .monthly-subtext { font-size: 15px; color: #0284c7; }
+        
+        /* สัญลักษณ์แสดงสถานะการเซฟ */
+        #save-status {
+            font-size: 14px;
+            color: #64748b;
+            margin-left: 15px;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="tab-container">
+        <button id="btn-tab-yield" class="tab-btn active" onclick="switchTab('yield')">📊 เครื่องคำนวน Yield</button>
+        <button id="btn-tab-portfolio" class="tab-btn" onclick="switchTab('portfolio')">💼 L Boss Portfolio</button>
+        <button id="btn-tab-simulator" class="tab-btn" onclick="switchTab('simulator')">🔮 จำลองซื้อเพิ่ม (Top-up)</button>
+    </div>
+
+    <div id="tab-content-yield" class="calculator-wrapper">
+        <div class="calculator-card">
+            <h2>ระบบคำนวณกระแสเงินสด & Yield</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>จำนวนหุ้น (Shares):</label>
+                    <input type="number" id="single-shares" value="512" step="0.01" oninput="calculateSingleYield()">
+                </div>
+                <div class="form-group">
+                    <label>ต้นทุนเฉลี่ย (Cost/Share):</label>
+                    <input type="number" id="single-cost" value="51.8466" step="0.0001" oninput="calculateSingleYield()">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>ปันผลต่อหุ้น (Dividend):</label>
+                    <input type="number" id="single-dividend" value="0.659" step="0.0001" oninput="calculateSingleYield()">
+                </div>
+                <div class="form-group">
+                    <label>รอบการจ่าย (Frequency):</label>
+                    <select id="single-frequency" onchange="calculateSingleYield()">
+                        <option value="12">รายเดือน</option>
+                        <option value="4">รายไตรมาส</option>
+                        <option value="1">รายปี</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group full">
+                <label>อัตราแลกเปลี่ยน (1 USD = ? THB):</label>
+                <input type="number" id="single-exchange-rate" value="32.63" step="0.01" oninput="calculateSingleYield()">
+            </div>
+            <div class="result-box">
+                <div class="result-row">
+                    <div class="result-header">
+                        <span class="result-label">Yield (ก่อนหักภาษี)</span>
+                        <span class="result-value" id="gross-yield">0.00%</span>
+                    </div>
+                    <div class="cashflow-grid">
+                        <div class="cashflow-item">
+                            <div class="cashflow-title" id="gross-cycle-title">รับต่อรอบ</div>
+                            <div class="usd-text" id="gross-cycle-usd">$0.00</div>
+                            <div class="thb-text" id="gross-cycle-thb">≈ 0.00 ฿</div>
+                        </div>
+                        <div class="cashflow-item">
+                            <div class="cashflow-title">รวมทั้งปี (คาดการณ์)</div>
+                            <div class="usd-text" id="gross-annual-usd">$0.00</div>
+                            <div class="thb-text" id="gross-annual-thb">≈ 0.00 ฿</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="result-row net">
+                    <div class="result-header">
+                        <span class="result-label">Yield สุทธิ (หักภาษี 15%)</span>
+                        <span class="result-value" id="net-yield">0.00%</span>
+                    </div>
+                    <div class="cashflow-grid">
+                        <div class="cashflow-item">
+                            <div class="cashflow-title" id="net-cycle-title">รับต่อรอบ (สุทธิ)</div>
+                            <div class="usd-text" id="net-cycle-usd">$0.00</div>
+                            <div class="thb-text" id="net-cycle-thb">≈ 0.00 ฿</div>
+                        </div>
+                        <div class="cashflow-item">
+                            <div class="cashflow-title">รวมทั้งปี (สุทธิ)</div>
+                            <div class="usd-text" id="net-annual-usd">$0.00</div>
+                            <div class="thb-text" id="net-annual-thb">≈ 0.00 ฿</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-content-portfolio" style="display: none;">
+        <div class="dashboard-container">
+            <div class="header-section">
+                <h2>📊 L Boss Portfolio <span id="save-status">🟢 ข้อมูลซิงค์ล่าสุดแล้ว</span></h2>
+                <div class="global-settings" style="margin-bottom: 0;">
+                    <label>เรทเงิน (1 USD = THB):</label>
+                    <input type="number" id="global-rate" value="32.63" step="0.01" oninput="saveAndCalcDashboard()">
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table id="portfolio-table">
+                    <thead>
+                        <tr>
+                            <th width="12%">ชื่อ ETF/หุ้น</th>
+                            <th width="10%">จำนวนหุ้น</th>
+                            <th width="10%">ต้นทุน/หุ้น</th>
+                            <th width="10%">ปันผล/รอบ</th>
+                            <th width="11%">ความถี่</th>
+                            <th width="11%">% Yield<br>(Gross / Net)</th>
+                            <th width="18%">รับต่อรอบ<br>(Gross / Net)</th>
+                            <th width="18%">รับต่อปี (USD)<br>(Gross / Net)</th>
+                            <th width="4%">ลบ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="action-group">
+                <button class="btn-add" onclick="addRow()">+ เพิ่มรายการสินทรัพย์</button>
+                <div class="backup-controls">
+                    <button class="btn-backup" onclick="exportPortfolioBackup()">📥 สำรองข้อมูลพอร์ต</button>
+                    <button class="btn-restore" onclick="importPortfolioBackup()">📤 นำเข้าข้อมูลพอร์ต</button>
+                </div>
+            </div>
+
+            <div class="summary-section">
+                <div class="summary-box">
+                    <div class="summary-title">เงินต้นรวม (Total Cost)</div>
+                    <div class="summary-value" id="total-cost-usd">$0.00</div>
+                    <div class="summary-thb" id="total-cost-thb">0.00 ฿</div>
+                </div>
+                <div class="summary-box highlight">
+                    <div class="summary-title" style="color: #0284c7;">เฉลี่ยต่อเดือน (Net 15%)</div>
+                    <div class="summary-value" style="color: #0369a1;" id="total-monthly-net-usd">$0.00</div>
+                    <div class="summary-thb" id="total-monthly-net-thb">0.00 ฿</div>
+                </div>
+                <div class="summary-box">
+                    <div class="summary-title" style="color:#475569;">รวมทั้งปี (Gross)</div>
+                    <div class="summary-value" style="color:#475569;" id="total-gross-usd">$0.00</div>
+                    <div class="summary-thb" style="color:#475569;" id="total-gross-thb">0.00 ฿</div>
+                </div>
+                <div class="summary-box">
+                    <div class="summary-title">รวมทั้งปี (Net 15%)</div>
+                    <div class="summary-value" id="total-net-usd">$0.00</div>
+                    <div class="summary-thb" id="total-net-thb">0.00 ฿</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-content-simulator" class="calculator-wrapper" style="display: none;">
+        <div class="simulator-container">
+            <h2>🔮 เครื่องจำลองการซื้อเพิ่ม (Top-up Simulator)</h2>
+            <div class="global-settings">
+                <div class="global-group" style="flex: 1; min-width: 200px;">
+                    <label style="margin: 0;">ชื่อหุ้น/ETF:</label>
+                    <input type="text" id="stock-name" value="QQQI" placeholder="พิมพ์ชื่อหุ้น เช่น QQQI" oninput="autoFetchFromPortfolio(); runSimulation();" style="flex: 1;">
+                </div>
+                <div class="global-group">
+                    <label style="margin: 0;">เรทเงิน (1 USD = THB):</label>
+                    <input type="number" id="sim-rate" value="32.63" step="0.01" oninput="runSimulation()" style="width: 100px; text-align: right;">
+                </div>
+            </div>
+            <div class="input-grid">
+                <div class="input-card">
+                    <h3>📁 ข้อมูลพอร์ตเดิม (ที่มีอยู่แล้ว)</h3>
+                    <div class="form-group"><label>จำนวนหุ้นเดิม (Shares):</label><input type="number" id="old-shares" value="100" step="0.01" oninput="runSimulation()"></div>
+                    <div class="form-group"><label>ต้นทุนเฉลี่ยเดิม (Cost/Share $):</label><input type="number" id="old-cost" value="45.00" step="0.01" oninput="runSimulation()"></div>
+                    <div class="form-group"><label>ปันผลที่คาดหวังต่อรอบ ($/Share):</label><input type="number" id="div-per-share" value="0.65" step="0.001" oninput="runSimulation()"></div>
+                    <div class="form-group">
+                        <label>ความถี่การจ่ายปันผล:</label>
+                        <select id="sim-freq" onchange="runSimulation()">
+                            <option value="12">รายเดือน</option><option value="4">รายไตรมาส</option><option value="1">รายปี</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-card highlight">
+                    <h3>💵 เงินทุนที่จะซื้อเพิ่ม (Top-up)</h3>
+                    <div class="form-group">
+                        <label>จำนวนเงินไทยที่จะเติม (THB):</label>
+                        <input type="number" id="add-thb" value="100000" step="100" oninput="runSimulation()">
+                        <small style="color: #64748b; font-size: 12px; margin-top: 5px; display: block;" id="show-add-usd">แปลงเป็น: $0.00</small>
+                    </div>
+                    <div class="form-group">
+                        <label>ราคาหุ้นปัจจุบันบนกระดาน (Price $):</label>
+                        <input type="number" id="buy-price" value="50.00" step="0.01" oninput="runSimulation()">
+                    </div>
+                </div>
+            </div>
+            <div class="sim-result-section">
+                <div class="result-title" id="display-title">📊 สรุปผลการจำลองพอร์ตใหม่ของคุณ</div>
+                <div class="comparison-grid">
+                    <div class="comp-card">
+                        <div class="comp-header">📦 ก่อนซื้อ (พอร์ตเดิม)</div>
+                        <div class="data-row"><span class="data-label">จำนวนหุ้น</span><span class="data-value shares" id="res-old-shares">0.00</span></div>
+                        <div class="data-row"><span class="data-label">ต้นทุนเฉลี่ย</span><span class="data-value cost" id="res-old-cost">$0.00</span></div>
+                        <div class="data-row" style="margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
+                            <span class="data-label">ปันผลสุทธิ (หักภาษี 15% แล้ว)</span>
+                            <span class="data-value money" id="res-old-div">0 ฿ / ปี</span><span class="monthly-subtext" id="res-old-monthly">(≈ 0 ฿ / เดือน)</span>
+                        </div>
+                    </div>
+                    <div class="comp-card">
+                        <div class="comp-header">➕ ส่วนที่ได้เพิ่มมา</div>
+                        <div class="data-row"><span class="data-label">ได้หุ้นเพิ่มมา</span><span class="data-value shares" id="res-add-shares">+0.00</span></div>
+                        <div class="data-row"><span class="data-label">ซื้อที่ราคา</span><span class="data-value cost" id="res-add-price">$0.00</span></div>
+                        <div class="data-row" style="margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
+                            <span class="data-label">ปันผลงอกเงยเพิ่ม</span>
+                            <span class="data-value money" id="res-add-div">+0 ฿ / ปี</span><span class="monthly-subtext" id="res-add-monthly">(≈ +0 ฿ / เดือน)</span>
+                        </div>
+                    </div>
+                    <div class="comp-card new-total">
+                        <div class="comp-header" id="display-new-header">✨ พอร์ตใหม่ของคุณ ✨</div>
+                        <div class="data-row"><span class="data-label">จำนวนหุ้นรวม</span><span class="data-value shares" id="res-total-shares">0.00</span></div>
+                        <div class="data-row"><span class="data-label">ต้นทุนเฉลี่ยใหม่ (ถัวแล้ว)</span><span class="data-value cost" id="res-total-cost">$0.00</span></div>
+                        <div class="data-row" style="margin-top: 10px; border-top: 1px solid #a7f3d0; padding-top: 10px;">
+                            <span class="data-label">รวมรับปันผล (Net)</span>
+                            <span class="data-value money" id="res-total-div">0 ฿ / ปี</span><span class="monthly-subtext" id="res-total-monthly">(≈ 0 ฿ / เดือน)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // 1. นำเข้า Firebase SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // 🔥 ใส่โค้ด Firebase ของคุณตรงนี้ 🔥
+        const firebaseConfig = {
+          apiKey: "AIzaSyCXSWM419rJYrzi-ICFj9HJxWLiPICbJHc",
+          authDomain: "l-boss.firebaseapp.com",
+          projectId: "l-boss",
+          storageBucket: "l-boss.firebasestorage.app",
+          messagingSenderId: "1038706773779",
+          appId: "1:1038706773779:web:454286f6d789fd6280d4e6",
+          measurementId: "G-R3MST7FWGY"
+        };
+
+        // 2. เริ่มต้นใช้งานคลาวด์
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // เราจะเก็บข้อมูลทั้งหมดไว้ในแฟ้มชื่อ users หน้ากระดาษชื่อ l_boss_portfolio
+        const docRef = doc(db, "users", "l_boss_portfolio");
+
+        // ตัวแปรส่วนกลางสำหรับเก็บข้อมูลใน RAM (เพื่อให้คำนวณและสลับหน้าได้ไว ไม่ต้องโหลดจากคลาวด์บ่อย)
+        window.globalPortfolioData = { rate: 32.63, items: [] };
+
+        // --- ระบบสลับหน้า (Tabs Logic) ---
+        window.switchTab = function(tabName) {
+            document.getElementById('tab-content-yield').style.display = 'none';
+            document.getElementById('tab-content-portfolio').style.display = 'none';
+            document.getElementById('tab-content-simulator').style.display = 'none';
+            document.getElementById('btn-tab-yield').classList.remove('active');
+            document.getElementById('btn-tab-portfolio').classList.remove('active');
+            document.getElementById('btn-tab-simulator').classList.remove('active');
+
+            if (tabName === 'yield') {
+                document.getElementById('tab-content-yield').style.display = 'flex';
+                document.getElementById('btn-tab-yield').classList.add('active');
+            } else if (tabName === 'portfolio') {
+                document.getElementById('tab-content-portfolio').style.display = 'block';
+                document.getElementById('btn-tab-portfolio').classList.add('active');
+            } else if (tabName === 'simulator') {
+                document.getElementById('tab-content-simulator').style.display = 'flex';
+                document.getElementById('btn-tab-simulator').classList.add('active');
+                window.autoFetchFromPortfolio();
+                window.runSimulation();
+            }
+        }
+
+        // --- Utils ---
+        function formatMoney(amount, decimals = 2) {
+            return amount.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        }
+
+        // --- Tab 1: เครื่องคำนวน Yield ---
+        window.calculateSingleYield = function() {
+            const shares = parseFloat(document.getElementById('single-shares').value) || 0;
+            const cost = parseFloat(document.getElementById('single-cost').value) || 0;
+            const dividend = parseFloat(document.getElementById('single-dividend').value) || 0;
+            const frequency = parseFloat(document.getElementById('single-frequency').value) || 12;
+            const exchangeRate = parseFloat(document.getElementById('single-exchange-rate').value) || 0;
+
+            const cycleText = frequency == 12 ? "รับต่อเดือน" : (frequency == 4 ? "รับต่อไตรมาส" : "รับต่อปี");
+            document.getElementById('gross-cycle-title').innerText = cycleText;
+            document.getElementById('net-cycle-title').innerText = cycleText + " (สุทธิ)";
+
+            if (cost > 0 && dividend >= 0 && exchangeRate > 0 && shares > 0) {
+                const annualDividendPerShare = dividend * frequency;
+                const grossYield = (annualDividendPerShare / cost) * 100;
+                const netYield = grossYield * 0.85;
+
+                const grossCycleUSD = dividend * shares;
+                const grossCycleTHB = grossCycleUSD * exchangeRate;
+                const grossAnnualUSD = grossCycleUSD * frequency;
+                const grossAnnualTHB = grossAnnualUSD * exchangeRate;
+
+                const netCycleUSD = grossCycleUSD * 0.85;
+                const netCycleTHB = grossCycleTHB * 0.85;
+                const netAnnualUSD = grossAnnualUSD * 0.85;
+                const netAnnualTHB = grossAnnualTHB * 0.85;
+                
+                document.getElementById('gross-yield').innerText = grossYield.toFixed(2) + '%';
+                document.getElementById('net-yield').innerText = netYield.toFixed(2) + '%';
+                document.getElementById('gross-cycle-usd').innerText = '$' + formatMoney(grossCycleUSD);
+                document.getElementById('gross-cycle-thb').innerText = '≈ ' + formatMoney(grossCycleTHB) + ' ฿';
+                document.getElementById('gross-annual-usd').innerText = '$' + formatMoney(grossAnnualUSD);
+                document.getElementById('gross-annual-thb').innerText = '≈ ' + formatMoney(grossAnnualTHB) + ' ฿';
+                document.getElementById('net-cycle-usd').innerText = '$' + formatMoney(netCycleUSD);
+                document.getElementById('net-cycle-thb').innerText = '≈ ' + formatMoney(netCycleTHB) + ' ฿';
+                document.getElementById('net-annual-usd').innerText = '$' + formatMoney(netAnnualUSD);
+                document.getElementById('net-annual-thb').innerText = '≈ ' + formatMoney(netAnnualTHB) + ' ฿';
+            } else {
+                document.getElementById('gross-yield').innerText = '0.00%';
+                document.getElementById('net-yield').innerText = '0.00%';
+                document.getElementById('gross-cycle-usd').innerText = '$0.00';
+                document.getElementById('gross-cycle-thb').innerText = '≈ 0.00 ฿';
+                document.getElementById('gross-annual-usd').innerText = '$0.00';
+                document.getElementById('gross-annual-thb').innerText = '≈ 0.00 ฿';
+                document.getElementById('net-cycle-usd').innerText = '$0.00';
+                document.getElementById('net-cycle-thb').innerText = '≈ 0.00 ฿';
+                document.getElementById('net-annual-usd').innerText = '$0.00';
+                document.getElementById('net-annual-thb').innerText = '≈ 0.00 ฿';
+            }
+        }
+
+        // --- Tab 2: Dashboard (Cloud Sync) ---
+        window.addRow = function(data = null) {
+            const tbody = document.getElementById('table-body');
+            const tr = document.createElement('tr');
+            
+            const symbol = data ? data.symbol : '';
+            const shares = data ? data.shares : '';
+            const cost = data ? data.cost : '';
+            const div = data ? data.div : '';
+            const freq = data ? data.freq : '12';
+
+            tr.innerHTML = `
+                <td><input type="text" class="inp-symbol" placeholder="เช่น QQQI" value="${symbol}" oninput="saveAndCalcDashboard()"></td>
+                <td><input type="number" class="inp-shares small-input" placeholder="0" value="${shares}" oninput="saveAndCalcDashboard()"></td>
+                <td><input type="number" class="inp-cost small-input" placeholder="0.00" value="${cost}" oninput="saveAndCalcDashboard()"></td>
+                <td><input type="number" class="inp-div small-input" placeholder="0.00" value="${div}" oninput="saveAndCalcDashboard()"></td>
+                <td>
+                    <select class="inp-freq" onchange="saveAndCalcDashboard()">
+                        <option value="12" ${freq === '12' ? 'selected' : ''}>รายเดือน</option>
+                        <option value="4" ${freq === '4' ? 'selected' : ''}>รายไตรมาส</option>
+                        <option value="1" ${freq === '1' ? 'selected' : ''}>รายปี</option>
+                    </select>
+                </td>
+                <td>
+                    <div class="result-gross yield-gross">0.00%</div>
+                    <div class="result-net yield-net">0.00%</div>
+                </td>
+                <td>
+                    <div class="result-gross"><span class="cycle-gross">$0.00</span><span class="thb-inline cycle-gross-thb">(0.00 ฿)</span></div>
+                    <div class="result-net"><span class="cycle-net">$0.00</span><span class="thb-inline cycle-net-thb">(0.00 ฿)</span></div>
+                </td>
+                <td>
+                    <div class="result-gross"><span class="annual-gross">$0.00</span><span class="thb-inline annual-gross-thb">(0.00 ฿)</span></div>
+                    <div class="result-net"><span class="annual-net">$0.00</span><span class="thb-inline annual-net-thb">(0.00 ฿)</span></div>
+                </td>
+                <td><button class="btn-delete" onclick="deleteRow(this)">🗑️</button></td>
+            `;
+            tbody.appendChild(tr);
+            if (!data) window.saveAndCalcDashboard();
+        }
+
+        window.deleteRow = function(btn) {
+            if(confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) {
+                const tr = btn.closest('tr');
+                tr.remove();
+                window.saveAndCalcDashboard();
+            }
+        }
+
+        function calculateAllDashboardUI() {
+            const rate = parseFloat(document.getElementById('global-rate').value) || 32.63;
+            const rows = document.querySelectorAll('#table-body tr');
+            
+            let sumCostUSD = 0; let sumGrossAnnualUSD = 0; let sumNetAnnualUSD = 0;
+
+            rows.forEach(tr => {
+                const shares = parseFloat(tr.querySelector('.inp-shares').value) || 0;
+                const cost = parseFloat(tr.querySelector('.inp-cost').value) || 0;
+                const div = parseFloat(tr.querySelector('.inp-div').value) || 0;
+                const freq = parseFloat(tr.querySelector('.inp-freq').value) || 12;
+
+                if (shares > 0 && cost > 0 && div > 0) {
+                    const annualDivPerShare = div * freq;
+                    const grossYield = (annualDivPerShare / cost) * 100;
+                    const netYield = grossYield * 0.85;
+                    const grossCycleUSD = div * shares;
+                    const netCycleUSD = grossCycleUSD * 0.85;
+                    const grossAnnualUSD = grossCycleUSD * freq;
+                    const netAnnualUSD = grossAnnualUSD * 0.85;
+
+                    tr.querySelector('.yield-gross').innerText = grossYield.toFixed(2) + '% (G)';
+                    tr.querySelector('.yield-net').innerText = netYield.toFixed(2) + '% (N)';
+                    tr.querySelector('.cycle-gross').innerText = '$' + formatMoney(grossCycleUSD);
+                    tr.querySelector('.cycle-gross-thb').innerText = ' (' + formatMoney(grossCycleUSD * rate) + ' ฿)';
+                    tr.querySelector('.cycle-net').innerText = '$' + formatMoney(netCycleUSD);
+                    tr.querySelector('.cycle-net-thb').innerText = ' (' + formatMoney(netCycleUSD * rate) + ' ฿)';
+                    tr.querySelector('.annual-gross').innerText = '$' + formatMoney(grossAnnualUSD);
+                    tr.querySelector('.annual-gross-thb').innerText = ' (' + formatMoney(grossAnnualUSD * rate) + ' ฿)';
+                    tr.querySelector('.annual-net').innerText = '$' + formatMoney(netAnnualUSD);
+                    tr.querySelector('.annual-net-thb').innerText = ' (' + formatMoney(netAnnualUSD * rate) + ' ฿)';
+
+                    sumCostUSD += (shares * cost);
+                    sumGrossAnnualUSD += grossAnnualUSD;
+                    sumNetAnnualUSD += netAnnualUSD;
+                } else {
+                    tr.querySelector('.yield-gross').innerText = '0.00%';
+                    tr.querySelector('.yield-net').innerText = '0.00%';
+                    tr.querySelector('.cycle-gross').innerText = '$0.00';
+                    tr.querySelector('.cycle-gross-thb').innerText = ' (0.00 ฿)';
+                    tr.querySelector('.cycle-net').innerText = '$0.00';
+                    tr.querySelector('.cycle-net-thb').innerText = ' (0.00 ฿)';
+                    tr.querySelector('.annual-gross').innerText = '$0.00';
+                    tr.querySelector('.annual-gross-thb').innerText = ' (0.00 ฿)';
+                    tr.querySelector('.annual-net').innerText = '$0.00';
+                    tr.querySelector('.annual-net-thb').innerText = ' (0.00 ฿)';
+                }
+            });
+
+            const sumMonthlyNetUSD = sumNetAnnualUSD / 12;
+            document.getElementById('total-cost-usd').innerText = '$' + formatMoney(sumCostUSD);
+            document.getElementById('total-cost-thb').innerText = formatMoney(sumCostUSD * rate) + ' ฿';
+            document.getElementById('total-monthly-net-usd').innerText = '$' + formatMoney(sumMonthlyNetUSD);
+            document.getElementById('total-monthly-net-thb').innerText = formatMoney(sumMonthlyNetUSD * rate) + ' ฿';
+            document.getElementById('total-gross-usd').innerText = '$' + formatMoney(sumGrossAnnualUSD);
+            document.getElementById('total-gross-thb').innerText = formatMoney(sumGrossAnnualUSD * rate) + ' ฿';
+            document.getElementById('total-net-usd').innerText = '$' + formatMoney(sumNetAnnualUSD);
+            document.getElementById('total-net-thb').innerText = formatMoney(sumNetAnnualUSD * rate) + ' ฿';
+        }
+
+        // ระบบ Auto-save (Debounce 1 วินาทีเพื่อลดภาระเซิร์ฟเวอร์)
+        let syncTimeout = null;
+        window.saveAndCalcDashboard = function() {
+            calculateAllDashboardUI(); // อัปเดตหน้าจอทันที ไม่ต้องรอ
+            document.getElementById('save-status').innerText = "⏳ กำลังบันทึกข้อมูล...";
+            document.getElementById('save-status').style.color = "#d97706";
+
+            const rate = document.getElementById('global-rate').value;
+            const rows = document.querySelectorAll('#table-body tr');
+            const data = [];
+            
+            rows.forEach(tr => {
+                data.push({
+                    symbol: tr.querySelector('.inp-symbol').value,
+                    shares: tr.querySelector('.inp-shares').value,
+                    cost: tr.querySelector('.inp-cost').value,
+                    div: tr.querySelector('.inp-div').value,
+                    freq: tr.querySelector('.inp-freq').value
+                });
+            });
+
+            // อัปเดตตัวแปรส่วนกลางสำหรับ Tab 3 ทันที
+            window.globalPortfolioData = { rate, items: data };
+
+            // หน่วงเวลาเซฟขึ้น Firebase (ถ้าพิมพ์ต่อภายใน 1 วิ มันจะรีเซ็ตเวลาใหม่)
+            clearTimeout(syncTimeout);
+            syncTimeout = setTimeout(async () => {
+                try {
+                    await setDoc(docRef, window.globalPortfolioData);
+                    document.getElementById('save-status').innerText = "🟢 ซิงค์ขึ้นคลาวด์เรียบร้อย";
+                    document.getElementById('save-status').style.color = "#059669";
+                } catch (error) {
+                    console.error("Error saving document: ", error);
+                    document.getElementById('save-status').innerText = "🔴 ข้อผิดพลาดในการซิงค์ข้อมูล";
+                    document.getElementById('save-status').style.color = "#ef4444";
+                }
+            }, 1000); 
+        }
+
+        // ดึงข้อมูลจาก Cloud ตอนเปิดเว็บครั้งแรก
+        async function loadDashboardData() {
+            document.getElementById('save-status').innerText = "🔄 กำลังโหลดข้อมูลจากคลาวด์...";
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    window.globalPortfolioData = data;
+                    if(data.rate) document.getElementById('global-rate').value = data.rate;
+                    
+                    if (data.items && data.items.length > 0) {
+                        data.items.forEach(item => window.addRow(item));
+                    } else {
+                        window.addRow();
+                    }
+                } else {
+                    // กรณียังไม่เคยมีฐานข้อมูลเลย
+                    window.addRow();
+                }
+                document.getElementById('save-status').innerText = "🟢 โหลดข้อมูลเสร็จสิ้น";
+            } catch (error) {
+                console.error("Error fetching document:", error);
+                document.getElementById('save-status').innerText = "🔴 ดึงข้อมูลไม่ได้ (รันแบบออฟไลน์)";
+                // Fallback กรณีดึงข้อมูลคลาวด์ไม่ได้
+                window.addRow();
+            }
+            calculateAllDashboardUI();
+        }
+
+        // --- Backup & Restore (ปรับให้ทำงานร่วมกับตัวแปรส่วนกลาง) ---
+        window.exportPortfolioBackup = function() {
+            const dataStr = JSON.stringify(window.globalPortfolioData);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `L_Boss_Portfolio_CloudBackup_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        window.importPortfolioBackup = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = async (evt) => {
+                    try {
+                        const parsedData = JSON.parse(evt.target.result);
+                        if (parsedData && (parsedData.items || parsedData.rate)) {
+                            if (confirm('การนำเข้าข้อมูลนี้จะ "เขียนทับพอร์ตบนคลาวด์ทั้งหมด" คุณต้องการดำเนินการต่อใช่หรือไม่?')) {
+                                document.getElementById('save-status').innerText = "⏳ กำลังเขียนทับข้อมูลคลาวด์...";
+                                
+                                // ส่งขึ้น Firebase ทันที
+                                await setDoc(docRef, parsedData);
+                                
+                                // เคลียร์ตารางและโหลดใหม่
+                                document.getElementById('table-body').innerHTML = '';
+                                window.globalPortfolioData = parsedData;
+                                if(parsedData.rate) document.getElementById('global-rate').value = parsedData.rate;
+                                
+                                if (parsedData.items && parsedData.items.length > 0) {
+                                    parsedData.items.forEach(item => window.addRow(item));
+                                } else {
+                                    window.addRow();
+                                }
+                                calculateAllDashboardUI();
+                                document.getElementById('save-status').innerText = "🟢 ซิงค์ขึ้นคลาวด์เรียบร้อย";
+                                alert('นำเข้าและซิงค์ข้อมูลพอร์ตเรียบร้อยแล้วครับ!');
+                            }
+                        } else {
+                            alert('รูปแบบไฟล์สำรองข้อมูลไม่ถูกต้อง');
+                        }
+                    } catch (err) {
+                        alert('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // --- Tab 3: Simulator ---
+        window.autoFetchFromPortfolio = function() {
+            const stockName = document.getElementById('stock-name').value.trim().toUpperCase();
+            if (!stockName) return;
+
+            // ดึงจากตัวแปรส่วนกลางที่โหลดไว้แล้วจากคลาวด์
+            const data = window.globalPortfolioData;
+            if (data && data.items && data.items.length > 0) {
+                const match = data.items.find(item => item.symbol.trim().toUpperCase() === stockName);
+                if (match) {
+                    document.getElementById('old-shares').value = match.shares || 0;
+                    document.getElementById('old-cost').value = match.cost || 0;
+                    document.getElementById('div-per-share').value = match.div || 0;
+                    document.getElementById('sim-freq').value = match.freq || '12';
+                }
+            }
+        }
+
+        window.runSimulation = function() {
+            const stockName = document.getElementById('stock-name').value.trim() || 'หุ้นของคุณ';
+            const rate = parseFloat(document.getElementById('sim-rate').value) || 0;
+            
+            const oldShares = parseFloat(document.getElementById('old-shares').value) || 0;
+            const oldCost = parseFloat(document.getElementById('old-cost').value) || 0;
+            const divPerShare = parseFloat(document.getElementById('div-per-share').value) || 0;
+            const freq = parseFloat(document.getElementById('sim-freq').value) || 12;
+
+            const addTHB = parseFloat(document.getElementById('add-thb').value) || 0;
+            const buyPrice = parseFloat(document.getElementById('buy-price').value) || 0;
+
+            document.getElementById('display-title').innerText = `📊 สรุปผลการจำลองพอร์ต [ ${stockName} ]`;
+            document.getElementById('display-new-header').innerText = `✨ พอร์ตใหม่ ${stockName} ✨`;
+
+            let addUSD = 0;
+            if (rate > 0) addUSD = addTHB / rate;
+            document.getElementById('show-add-usd').innerText = `แปลงเป็น: $${formatMoney(addUSD)}`;
+
+            let newShares = 0;
+            if (buyPrice > 0) newShares = addUSD / buyPrice;
+            const totalShares = oldShares + newShares;
+
+            const oldCapitalUSD = oldShares * oldCost;
+            const newCapitalUSD = addUSD;
+            const totalCapitalUSD = oldCapitalUSD + newCapitalUSD;
+            
+            let newAvgCost = 0;
+            if (totalShares > 0) newAvgCost = totalCapitalUSD / totalShares;
+
+            const divMultiplier = divPerShare * freq * 0.85 * rate;
+
+            const oldDivTHB = oldShares * divMultiplier;
+            const newDivTHB = newShares * divMultiplier;
+            const totalDivTHB = totalShares * divMultiplier;
+
+            const oldDivMonthly = oldDivTHB / 12;
+            const newDivMonthly = newDivTHB / 12;
+            const totalDivMonthly = totalDivTHB / 12;
+
+            document.getElementById('res-old-shares').innerText = formatMoney(oldShares);
+            document.getElementById('res-old-cost').innerText = `$${formatMoney(oldCost)}`;
+            document.getElementById('res-old-div').innerText = `${formatMoney(oldDivTHB, 0)} ฿ / ปี`;
+            document.getElementById('res-old-monthly').innerText = `(≈ ${formatMoney(oldDivMonthly, 0)} ฿ / เดือน)`;
+
+            document.getElementById('res-add-shares').innerText = `+${formatMoney(newShares)}`;
+            document.getElementById('res-add-price').innerText = `$${formatMoney(buyPrice)}`;
+            document.getElementById('res-add-div').innerText = `+${formatMoney(newDivTHB, 0)} ฿ / ปี`;
+            document.getElementById('res-add-monthly').innerText = `(≈ +${formatMoney(newDivMonthly, 0)} ฿ / เดือน)`;
+
+            document.getElementById('res-total-shares').innerText = formatMoney(totalShares);
+            document.getElementById('res-total-cost').innerText = `$${formatMoney(newAvgCost)}`;
+            document.getElementById('res-total-div').innerText = `${formatMoney(totalDivTHB, 0)} ฿ / ปี`;
+            document.getElementById('res-total-monthly').innerText = `(≈ ${formatMoney(totalDivMonthly, 0)} ฿ / เดือน)`;
+        }
+
+        // --- รันคำสั่งเริ่มต้นเมื่อเปิดหน้าเว็บ ---
+        window.calculateSingleYield(); 
+        window.runSimulation();  
+        // โหลดข้อมูลจากคลาวด์เป็นอันดับสุดท้าย
+        loadDashboardData();      
+    </script>
+</body>
+</html>
