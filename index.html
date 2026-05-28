@@ -512,10 +512,27 @@
         }
 
         window.deleteRow = function(btn) {
-            if(confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) {
+            if (btn.classList.contains('confirming')) {
+                // หากกดย้ำครั้งที่สองในขณะที่ปุ่มอยู่ในสถานะรอการยืนยัน ให้ทำการลบแถวทันที
                 const tr = btn.closest('tr');
                 tr.remove();
                 window.saveAndCalcDashboard();
+            } else {
+                // เปลี่ยนปุ่มเป็นสีแดงเข้มและข้อความเพื่อรอการยืนยันบนหน้าจอมือถือ
+                btn.classList.add('confirming');
+                btn.innerText = '⚠️ ยืนยัน';
+                btn.style.backgroundColor = '#b91c1c';
+                btn.style.color = 'white';
+                
+                // หากไม่ได้กดซ้ำภายใน 3 วินาที จะคืนค่ากลับมาเพื่อความปลอดภัย
+                setTimeout(() => {
+                    if (btn && document.body.contains(btn)) {
+                        btn.classList.remove('confirming');
+                        btn.innerText = '🗑️';
+                        btn.style.backgroundColor = '';
+                        btn.style.color = '';
+                    }
+                }, 3000);
             }
         }
 
