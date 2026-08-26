@@ -485,6 +485,7 @@
         <div class="action-group" style="display: flex; gap: 10px; margin-top: 15px;">
             <button class="btn-add" onclick="addTxPortfolioRow()">+ เพิ่มรายการหุ้นเริ่มต้น</button>
             <button class="btn-backup" onclick="saveAndCalcTxPortfolio(true)" style="background-color: #2563eb; color: white;">💾 บันทึกการตั้งค่าพอร์ตจริง</button>
+            <button class="btn-backup" id="btn-txp-refresh" onclick="refreshTxPortfolioPrices()" style="background-color: #059669; color: white;">🔄 Refresh</button>
         </div>
 
         <div class="summary-section" style="background: #eff6ff; border-color: #3b82f6; margin-top: 20px;">
@@ -1417,6 +1418,75 @@
                     document.getElementById('save-status').style.color = "#ef4444";
                 }
             })();
+        }
+
+        async function fetchStockPrice(symbol) {
+            const urls = [
+                `https://corsproxy.io/?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol)}`,
+                `https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol)}`
+            ];
+            
+            for (let url of urls) {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) continue;
+                    
+                    const rawData = await res.json();
+                    const data = url.includes('allorigins') ? JSON.parse(rawData.contents) : rawData;
+                    
+                    if (data && data.chart && data.chart.result && data.chart.result[0]) {
+                        const price = data.chart.result[0].meta.regularMarketPrice;
+                        if (price && !isNaN(price)) {
+                            return price;
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`Failed to fetch from ${url}:`, e);
+                }
+            }
+            return null;
+        }
+
+        window.refreshTxPortfolioPrices = async function() {
+            const btn = document.getElementById('btn-txp-refresh');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "⏳ กำลังดึงข้อมูล...";
+            }
+            
+            const rows = document.querySelectorAll('#txp-table-body tr');
+            const fetchPromises = [];
+            
+            rows.forEach(tr => {
+                const symInput = tr.querySelector('.txp-symbol');
+                if (!symInput) return;
+                
+                const sym = symInput.value.trim().toUpperCase();
+                if (!sym) return;
+                
+                const priceInput = tr.querySelector('.txp-price');
+                if (!priceInput) return;
+                
+                const promise = fetchStockPrice(sym).then(price => {
+                    if (price !== null) {
+                        priceInput.value = price.toFixed(4);
+                    }
+                });
+                fetchPromises.push(promise);
+            });
+            
+            if (fetchPromises.length > 0) {
+                await Promise.all(fetchPromises);
+                // สั่งคำนวณใหม่เพื่ออัปเดตหน้าจอทันที
+                window.renderTxPortfolio();
+                // บันทึกราคาที่ดึงมาใหม่ขึ้น Cloud โดยไม่แสดง Alert
+                window.saveAndCalcTxPortfolio(false);
+            }
+            
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "🔄 Refresh";
+            }
         }
 
         window.saveTransaction = function() {
