@@ -1117,25 +1117,25 @@
 
             tr.innerHTML = `
                 <td>
-                    <input type="text" class="txp-symbol" placeholder="เช่น TSLA" value="${symbol}" style="text-transform: uppercase; font-weight: bold; width: 100%; border: 1px solid #cbd5e1; border-radius: 5px; padding: 6px;" oninput="renderTxPortfolio()">
+                    <input type="text" class="txp-symbol" placeholder="เช่น TSLA" value="${symbol}" style="text-transform: uppercase; font-weight: bold; width: 100%; border: 1px solid #cbd5e1; border-radius: 5px; padding: 6px;" oninput="handleTxpInput(this)">
                 </td>
                 <td>
-                    <input type="number" class="txp-shares small-input" placeholder="0" value="${shares}" step="0.00000001" oninput="renderTxPortfolio()" style="width: 100px;">
+                    <input type="number" class="txp-shares small-input" placeholder="0" value="${shares}" step="0.00000001" oninput="handleTxpInput(this)" style="width: 100px;">
                 </td>
                 <td>
-                    <input type="number" class="txp-cost small-input" placeholder="0.00" value="${cost}" step="0.0001" oninput="renderTxPortfolio()" style="width: 95px;">
+                    <input type="number" class="txp-cost small-input" placeholder="0.00" value="${cost}" step="0.0001" oninput="handleTxpInput(this)" style="width: 95px;">
                 </td>
                 <td>
-                    <input type="number" class="txp-price small-input" placeholder="0.00" value="${price}" step="0.0001" oninput="renderTxPortfolio()" style="width: 90px;">
+                    <input type="number" class="txp-price small-input" placeholder="0.00" value="${price}" step="0.0001" oninput="handleTxpInput(this)" style="width: 90px;">
                 </td>
                 <td class="txp-total-cost" style="font-weight: bold; color: #475569;">$0.00</td>
                 <td class="txp-market-value" style="font-weight: bold; color: #1e3a8a;">$0.00</td>
                 <td class="txp-gain-loss" style="font-weight: bold;">$0.00 (0.00%)</td>
                 <td>
-                    <input type="number" class="txp-div small-input" placeholder="0.00" value="${div}" step="0.0001" oninput="renderTxPortfolio()" style="width: 80px;">
+                    <input type="number" class="txp-div small-input" placeholder="0.00" value="${div}" step="0.0001" oninput="handleTxpInput(this)" style="width: 80px;">
                 </td>
                 <td>
-                    <select class="txp-freq" onchange="renderTxPortfolio()" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 5px;">
+                    <select class="txp-freq" onchange="handleTxpInput(this)" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 5px;">
                         <option value="12" ${freq === '12' ? 'selected' : ''}>รายเดือน</option>
                         <option value="4" ${freq === '4' ? 'selected' : ''}>รายไตรมาส</option>
                         <option value="1" ${freq === '1' ? 'selected' : ''}>รายปี</option>
@@ -1185,6 +1185,69 @@
                 window.saveAndCalcTxPortfolio();
             }
         });
+
+        window.handleTxpInput = function(inputEl) {
+            const tr = inputEl.closest('tr');
+            if (!tr) return;
+            
+            const symInput = tr.querySelector('.txp-symbol');
+            if (!symInput) return;
+            const sym = symInput.value.trim().toUpperCase();
+            if (!sym) return;
+
+            const sharesInput = tr.querySelector('.txp-shares');
+            const costInput = tr.querySelector('.txp-cost');
+            if (!sharesInput || !costInput) return;
+
+            const currentShares = parseFloat(sharesInput.value) || 0;
+            const currentCost = parseFloat(costInput.value) || 0;
+
+            const txList = window.globalPortfolioData.transactions || [];
+            
+            // คำนวณยอดสะสมธุรกรรมเพื่อหักล้างหาจุดเริ่มต้น
+            const chronologicalTx = txList
+                .filter(tx => tx.symbol.trim().toUpperCase() === sym)
+                .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+
+            let tempShares = 0;
+            let tempCostUSD = 0;
+            let tempAvgCost = 0;
+            chronologicalTx.forEach(tx => {
+                const type = tx.type || 'buy';
+                const sh = parseFloat(tx.shares) || 0;
+                const pr = parseFloat(tx.price) || 0;
+
+                if (type === 'buy') {
+                    tempShares += sh;
+                    tempCostUSD += (sh * pr);
+                    tempAvgCost = tempShares > 0 ? (tempCostUSD / tempShares) : 0;
+                } else if (type === 'sell') {
+                    tempShares -= sh;
+                    if (tempShares < 0) tempShares = 0;
+                    tempCostUSD = tempShares * tempAvgCost;
+                }
+            });
+
+            // ยอดเริ่มต้น = ยอดปัจจุบันบนจอ - ยอดธุรกรรมสะสม
+            const initShares = Math.max(0, currentShares - tempShares);
+            const finalTotalCost = currentShares * currentCost;
+            const initTotalCost = Math.max(0, finalTotalCost - tempCostUSD);
+            const initCost = initShares > 0 ? (initTotalCost / initShares) : 0;
+
+            if (!window.globalPortfolioData.txSettings) {
+                window.globalPortfolioData.txSettings = {};
+            }
+            window.globalPortfolioData.txSettings[sym] = {
+                initShares,
+                initCost,
+                price: tr.querySelector('.txp-price').value,
+                div: tr.querySelector('.txp-div').value,
+                freq: tr.querySelector('.txp-freq').value
+            };
+
+            // คำนวณหน้าจอใหม่
+            window.renderTxPortfolio();
+        }
 
         window.renderTxPortfolio = function() {
             const rate = parseFloat(document.getElementById('global-rate').value) || 32.63;
@@ -1273,61 +1336,6 @@
                 document.getElementById('txp-total-net-thb').innerText = '0.00 ฿';
                 return;
             }
-
-            // ซิงค์อินพุตที่กำลังป้อนบนหน้าจอกลับเข้าไปใน memory (txSettings) แบบเรียลไทม์ (หักล้างธุรกรรมย้อนกลับเพื่อหาฐานเริ่มต้นที่แท้จริง)
-            activeRows.forEach(tr => {
-                const symInput = tr.querySelector('.txp-symbol');
-                if (!symInput) return;
-                const sym = symInput.value.trim().toUpperCase();
-                if (!sym) return;
-
-                const sharesInput = tr.querySelector('.txp-shares');
-                const costInput = tr.querySelector('.txp-cost');
-                if (!sharesInput || !costInput) return;
-
-                const currentShares = parseFloat(sharesInput.value) || 0;
-                const currentCost = parseFloat(costInput.value) || 0;
-
-                // คำนวณยอดสะสมจากประวัติซื้อขายสำหรับหักล้าง
-                const chronologicalTx = txList
-                    .filter(tx => tx.symbol.trim().toUpperCase() === sym)
-                    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-
-                let tempShares = 0;
-                let tempCostUSD = 0;
-                let tempAvgCost = 0;
-                chronologicalTx.forEach(tx => {
-                    const type = tx.type || 'buy';
-                    const sh = parseFloat(tx.shares) || 0;
-                    const pr = parseFloat(tx.price) || 0;
-
-                    if (type === 'buy') {
-                        tempShares += sh;
-                        tempCostUSD += (sh * pr);
-                        tempAvgCost = tempShares > 0 ? (tempCostUSD / tempShares) : 0;
-                    } else if (type === 'sell') {
-                        tempShares -= sh;
-                        if (tempShares < 0) tempShares = 0;
-                        tempCostUSD = tempShares * tempAvgCost;
-                    }
-                });
-
-                const initShares = Math.max(0, currentShares - tempShares);
-                const finalTotalCost = currentShares * currentCost;
-                const initTotalCost = Math.max(0, finalTotalCost - tempCostUSD);
-                const initCost = initShares > 0 ? (initTotalCost / initShares) : 0;
-
-                if (!window.globalPortfolioData.txSettings) {
-                    window.globalPortfolioData.txSettings = {};
-                }
-                window.globalPortfolioData.txSettings[sym] = {
-                    initShares,
-                    initCost,
-                    price: tr.querySelector('.txp-price').value,
-                    div: tr.querySelector('.txp-div').value,
-                    freq: tr.querySelector('.txp-freq').value
-                };
-            });
 
             let sumCostUSD = 0;
             let sumMarketValueUSD = 0;
