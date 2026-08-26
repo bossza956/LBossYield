@@ -1421,18 +1421,27 @@
         }
 
         async function fetchStockPrice(symbol) {
+            const encodedTarget = encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol);
             const urls = [
-                `https://corsproxy.io/?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol)}`,
-                `https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol)}`
+                `https://corsproxy.io/?url=${encodedTarget}`,
+                `https://api.codetabs.com/v1/proxy?quest=https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`,
+                `https://api.allorigins.win/get?url=${encodedTarget}`
             ];
             
             for (let url of urls) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000); // กำหนด Timeout 3 วินาที
+                
                 try {
-                    const res = await fetch(url);
+                    const res = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeoutId);
                     if (!res.ok) continue;
                     
                     const rawData = await res.json();
-                    const data = url.includes('allorigins') ? JSON.parse(rawData.contents) : rawData;
+                    let data = rawData;
+                    if (url.includes('allorigins')) {
+                        data = JSON.parse(rawData.contents);
+                    }
                     
                     if (data && data.chart && data.chart.result && data.chart.result[0]) {
                         const price = data.chart.result[0].meta.regularMarketPrice;
@@ -1441,6 +1450,7 @@
                         }
                     }
                 } catch (e) {
+                    clearTimeout(timeoutId);
                     console.warn(`Failed to fetch from ${url}:`, e);
                 }
             }
@@ -1456,6 +1466,8 @@
             
             const rows = document.querySelectorAll('#txp-table-body tr');
             const fetchPromises = [];
+            let successCount = 0;
+            let totalCount = 0;
             
             rows.forEach(tr => {
                 const symInput = tr.querySelector('.txp-symbol');
@@ -1467,9 +1479,12 @@
                 const priceInput = tr.querySelector('.txp-price');
                 if (!priceInput) return;
                 
+                totalCount++;
+                
                 const promise = fetchStockPrice(sym).then(price => {
                     if (price !== null) {
                         priceInput.value = price.toFixed(4);
+                        successCount++;
                     }
                 });
                 fetchPromises.push(promise);
@@ -1481,6 +1496,20 @@
                 window.renderTxPortfolio();
                 // บันทึกราคาที่ดึงมาใหม่ขึ้น Cloud โดยไม่แสดง Alert
                 window.saveAndCalcTxPortfolio(false);
+                
+                // แสดงสถานะที่แถบสถานะเซฟ
+                const statusEl = document.getElementById('save-status');
+                if (successCount === totalCount) {
+                    statusEl.innerText = "🟢 อัปเดตราคาตลาดเรียบร้อยแล้ว";
+                    statusEl.style.color = "#059669";
+                } else if (successCount > 0) {
+                    statusEl.innerText = `⚠️ อัปเดตสำเร็จ ${successCount}/${totalCount} ตัว (บางตัวขัดข้อง)`;
+                    statusEl.style.color = "#d97706";
+                } else {
+                    statusEl.innerText = "🔴 ดึงข้อมูลราคาล้มเหลว (เกิดข้อผิดพลาดกับเซิร์ฟเวอร์ Proxy)";
+                    statusEl.style.color = "#ef4444";
+                    alert("🔴 ไม่สามารถดึงราคาล่าสุดได้ในขณะนี้เนื่องจากเซิร์ฟเวอร์ CORS Proxy ทั้งหมดปิดกั้นหรือขัดข้อง กรุณาลองใหม่อีกครั้งในภายหลังครับ");
+                }
             }
             
             if (btn) {
