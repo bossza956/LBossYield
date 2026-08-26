@@ -1299,9 +1299,35 @@
                     return;
                 }
 
+                const sharesInput = tr.querySelector('.txp-shares');
+                const costInput = tr.querySelector('.txp-cost');
+                
+                // ตรวจสอบว่ามีรายการในประวัติซื้อ/ขาย (Transactions) สำหรับหุ้นตัวนี้หรือไม่
+                const hasTx = txCalculated[sym] !== undefined;
+                if (hasTx) {
+                    // หากมีรายการ ให้เอาตัวเลขรวมสุทธิและราคาถัวมาเขียนทับช่องและล็อคเป็น Read-only
+                    sharesInput.value = txCalculated[sym].totalShares.toFixed(8).replace(/\.?0+$/, '');
+                    costInput.value = txCalculated[sym].avgCost.toFixed(4).replace(/\.?0+$/, '');
+                    
+                    sharesInput.readOnly = true;
+                    costInput.readOnly = true;
+                    sharesInput.style.backgroundColor = '#f1f5f9';
+                    costInput.style.backgroundColor = '#f1f5f9';
+                    sharesInput.style.color = '#64748b';
+                    costInput.style.color = '#64748b';
+                } else {
+                    // หากไม่มีรายการในประวัติซื้อขาย ให้พิมพ์ใส่เลขเริ่มต้นเองได้อย่างอิสระ
+                    sharesInput.readOnly = false;
+                    costInput.readOnly = false;
+                    sharesInput.style.backgroundColor = '';
+                    costInput.style.backgroundColor = '';
+                    sharesInput.style.color = '';
+                    costInput.style.color = '';
+                }
+
                 // ดึงค่าอินพุตจากตาราง
-                const shares = parseFloat(tr.querySelector('.txp-shares').value) || 0;
-                const cost = parseFloat(tr.querySelector('.txp-cost').value) || 0;
+                const shares = parseFloat(sharesInput.value) || 0;
+                const cost = parseFloat(costInput.value) || 0;
                 const price = parseFloat(tr.querySelector('.txp-price').value) || 0;
                 const div = parseFloat(tr.querySelector('.txp-div').value) || 0;
                 const freq = parseFloat(tr.querySelector('.txp-freq').value) || 12;
