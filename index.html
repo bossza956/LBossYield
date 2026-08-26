@@ -1422,24 +1422,33 @@
 
         async function fetchStockPrice(symbol) {
             const encodedTarget = encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol);
-            const urls = [
-                `https://corsproxy.io/?url=${encodedTarget}`,
-                `https://api.codetabs.com/v1/proxy?quest=https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`,
-                `https://api.allorigins.win/get?url=${encodedTarget}`
-            ];
             
-            for (let url of urls) {
+            // ลำดับ URL: ลองใช้ Cloudflare Pages Function ก่อน ถ้าล้มเหลวค่อยไปพึ่ง CORS Proxy
+            const urls = [];
+            
+            // ถ้าไม่ใช่ file:// ให้ลองใช้ Cloudflare Pages Function /api ก่อน
+            if (window.location.protocol !== 'file:') {
+                urls.push({ type: 'pages-function', url: `/api?symbol=${symbol}`, timeout: 4000 });
+            }
+            
+            urls.push(
+                { type: 'allorigins', url: `https://api.allorigins.win/get?url=${encodedTarget}`, timeout: 8000 },
+                { type: 'codetabs', url: `https://api.codetabs.com/v1/proxy?quest=https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`, timeout: 5000 },
+                { type: 'corsproxy', url: `https://corsproxy.io/?url=${encodedTarget}`, timeout: 5000 }
+            );
+            
+            for (let item of urls) {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000); // กำหนด Timeout 3 วินาที
+                const timeoutId = setTimeout(() => controller.abort(), item.timeout);
                 
                 try {
-                    const res = await fetch(url, { signal: controller.signal });
+                    const res = await fetch(item.url, { signal: controller.signal });
                     clearTimeout(timeoutId);
                     if (!res.ok) continue;
                     
                     const rawData = await res.json();
                     let data = rawData;
-                    if (url.includes('allorigins')) {
+                    if (item.type === 'allorigins') {
                         data = JSON.parse(rawData.contents);
                     }
                     
@@ -1451,7 +1460,7 @@
                     }
                 } catch (e) {
                     clearTimeout(timeoutId);
-                    console.warn(`Failed to fetch from ${url}:`, e);
+                    console.warn(`Failed to fetch from ${item.type} (${item.url}):`, e);
                 }
             }
             return null;
