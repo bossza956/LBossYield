@@ -1420,7 +1420,7 @@
             })();
         }
 
-        async function fetchStockPrice(symbol) {
+        async function fetchStockPriceSingle(symbol) {
             const encodedTarget = encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol);
             
             // ลำดับ URL: ลองใช้ Cloudflare Pages Function ก่อน ถ้าล้มเหลวค่อยไปพึ่ง CORS Proxy
@@ -1466,6 +1466,15 @@
             return null;
         }
 
+        async function fetchStockPrice(symbol) {
+            let price = await fetchStockPriceSingle(symbol);
+            if (price !== null) return price;
+            
+            // หากดึงครั้งแรกไม่ผ่าน ให้เว้นจังหวะ 500ms แล้วลองใหม่อีกรอบ (ป้องกันจังหวะชน rate limit หรือเน็ตกระตุก)
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return await fetchStockPriceSingle(symbol);
+        }
+
         window.refreshTxPortfolioPrices = async function() {
             const btn = document.getElementById('btn-txp-refresh');
             if (btn) {
@@ -1477,6 +1486,7 @@
             const fetchPromises = [];
             let successCount = 0;
             let totalCount = 0;
+            let delay = 0;
             
             rows.forEach(tr => {
                 const symInput = tr.querySelector('.txp-symbol');
@@ -1490,13 +1500,17 @@
                 
                 totalCount++;
                 
-                const promise = fetchStockPrice(sym).then(price => {
-                    if (price !== null) {
-                        priceInput.value = price.toFixed(4);
-                        successCount++;
-                    }
-                });
+                // ใช้การหน่วงเวลาตัวละ 250ms เพื่อไม่ให้ยิงขอข้อมูลชนกันพร้อมกันทีเดียว (หลีกเลี่ยง rate limits)
+                const promise = new Promise(resolve => setTimeout(resolve, delay))
+                    .then(() => fetchStockPrice(sym))
+                    .then(price => {
+                        if (price !== null) {
+                            priceInput.value = price.toFixed(4);
+                            successCount++;
+                        }
+                    });
                 fetchPromises.push(promise);
+                delay += 250;
             });
             
             if (fetchPromises.length > 0) {
