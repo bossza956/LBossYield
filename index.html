@@ -466,14 +466,14 @@
         <div class="table-responsive">
             <table id="tx-portfolio-table">
                 <thead>
-                    <tr>
-                        <th width="12%">ชื่อ ETF/หุ้น</th>
-                        <th width="15%">จำนวนหุ้นคงเหลือ</th>
-                        <th width="15%">ต้นทุนต่อหุ้น (USD)</th>
-                        <th width="12%">ราคา USD</th>
-                        <th width="15%">ต้นทุนรวม (USD)</th>
-                        <th width="15%">มูลค่าตลาด (USD)</th>
-                        <th width="11%">กำไร/ขาดทุน</th>
+                    <tr style="user-select: none;">
+                        <th id="th-txp-symbol" width="12%" onclick="sortTxPortfolio('symbol')" style="cursor: pointer;">ชื่อ ETF/หุ้น<span style="font-size:10px; color:#cbd5e1; margin-left:4px;"> ↕</span></th>
+                        <th id="th-txp-shares" width="15%" onclick="sortTxPortfolio('shares')" style="cursor: pointer;">จำนวนหุ้นคงเหลือ<span style="font-size:10px; color:#cbd5e1; margin-left:4px;"> ↕</span></th>
+                        <th id="th-txp-cost" width="15%" onclick="sortTxPortfolio('cost')" style="cursor: pointer;">ต้นทุนต่อหุ้น (USD)<span style="font-size:10px; color:#cbd5e1; margin-left:4px;"> ↕</span></th>
+                        <th id="th-txp-price" width="12%" onclick="sortTxPortfolio('price')" style="cursor: pointer;">ราคา USD<span style="font-size:10px; color:#cbd5e1; margin-left:4px;"> ↕</span></th>
+                        <th id="th-txp-total-cost" width="15%" onclick="sortTxPortfolio('totalCost')" style="cursor: pointer;">ต้นทุนรวม (USD)<span style="font-size:10px; color:#cbd5e1; margin-left:4px;"> ↕</span></th>
+                        <th id="th-txp-market-value" width="15%" onclick="sortTxPortfolio('marketValue')" style="cursor: pointer;">มูลค่าตลาด (USD)<span style="font-size:10px; color:#cbd5e1; margin-left:4px;"> ↕</span></th>
+                        <th id="th-txp-gain-loss" width="11%" onclick="sortTxPortfolio('gainLoss')" style="cursor: pointer;">กำไร/ขาดทุน<span style="font-size:10px; color:#cbd5e1; margin-left:4px;"> ↕</span></th>
                         <th width="5%">ลบ</th>
                     </tr>
                 </thead>
@@ -904,6 +904,103 @@
             });
             
             window.globalPortfolioData.items = newDashboard;
+        }
+
+        // --- ระบบจัดเรียงแถวพอร์ตหุ้นจริง ---
+        let txpSortState = {
+            column: null,
+            direction: 'asc'
+        };
+
+        window.sortTxPortfolio = function(columnName) {
+            const tbody = document.getElementById('txp-table-body');
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            if (rows.length === 0 || (rows.length === 1 && rows[0].querySelector('td[colspan]'))) {
+                return; // ตารางว่างเปล่า
+            }
+
+            // สลับสถานะทิศทาง
+            if (txpSortState.column === columnName) {
+                txpSortState.direction = txpSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                txpSortState.column = columnName;
+                txpSortState.direction = 'asc';
+            }
+
+            // คำนวณค่าเปรียบเทียบในแต่ละแถวเพื่อความเร็วก่อนนำไปจัดเรียง
+            const rowData = rows.map(tr => {
+                const symbol = tr.querySelector('.txp-symbol').value.trim().toUpperCase();
+                const shares = parseFloat(tr.querySelector('.txp-shares').value) || 0;
+                const cost = parseFloat(tr.querySelector('.txp-cost').value) || 0;
+                const price = parseFloat(tr.querySelector('.txp-price').value) || 0;
+                const totalCost = shares * cost;
+                const marketValue = shares * price;
+                const gainLoss = marketValue - totalCost;
+
+                let compareValue;
+                if (columnName === 'symbol') compareValue = symbol;
+                else if (columnName === 'shares') compareValue = shares;
+                else if (columnName === 'cost') compareValue = cost;
+                else if (columnName === 'price') compareValue = price;
+                else if (columnName === 'totalCost') compareValue = totalCost;
+                else if (columnName === 'marketValue') compareValue = marketValue;
+                else if (columnName === 'gainLoss') compareValue = gainLoss;
+
+                return { tr, compareValue };
+            });
+
+            // เรียงลำดับข้อมูล
+            rowData.sort((a, b) => {
+                let valA = a.compareValue;
+                let valB = b.compareValue;
+
+                if (typeof valA === 'string') {
+                    return txpSortState.direction === 'asc' 
+                        ? valA.localeCompare(valB) 
+                        : valB.localeCompare(valA);
+                } else {
+                    return txpSortState.direction === 'asc' 
+                        ? valA - valB 
+                        : valB - valA;
+                }
+            });
+
+            // ใส่แถวกลับเข้าไปใน DOM
+            rowData.forEach(item => {
+                tbody.appendChild(item.tr);
+            });
+
+            // อัปเดตตัวบ่งชี้ Arrow บนหัวตาราง
+            updateTxpHeadersUI();
+            
+            // สั่งคำนวณใหม่เพื่อความสมบูรณ์
+            window.renderTxPortfolio();
+        };
+
+        function updateTxpHeadersUI() {
+            const headers = {
+                symbol: { id: 'th-txp-symbol', label: 'ชื่อ ETF/หุ้น' },
+                shares: { id: 'th-txp-shares', label: 'จำนวนหุ้นคงเหลือ' },
+                cost: { id: 'th-txp-cost', label: 'ต้นทุนต่อหุ้น (USD)' },
+                price: { id: 'th-txp-price', label: 'ราคา USD' },
+                totalCost: { id: 'th-txp-total-cost', label: 'ต้นทุนรวม (USD)' },
+                marketValue: { id: 'th-txp-market-value', label: 'มูลค่าตลาด (USD)' },
+                gainLoss: { id: 'th-txp-gain-loss', label: 'กำไร/ขาดทุน' }
+            };
+
+            Object.keys(headers).forEach(col => {
+                const el = document.getElementById(headers[col].id);
+                if (el) {
+                    let indicator = ' ↕';
+                    let color = '#cbd5e1';
+                    if (txpSortState.column === col) {
+                        indicator = txpSortState.direction === 'asc' ? ' ▲' : ' ▼';
+                        color = '#2563eb';
+                    }
+                    el.innerHTML = `${headers[col].label}<span style="font-size:10px; color:${color}; margin-left:4px;">${indicator}</span>`;
+                }
+            });
         }
 
         // ระบบ Auto-save (Debounce 1 วินาทีเพื่อลดภาระเซิร์ฟเวอร์)
