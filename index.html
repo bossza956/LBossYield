@@ -1883,6 +1883,19 @@
             
             const strategyList = window.globalPortfolioData.strategy || [];
             
+            // บันทึกสถานะโฟกัสและเคอร์เซอร์ก่อนล้าง DOM
+            const activeEl = document.activeElement;
+            let activeKey = null;
+            let activeSelectionStart = 0;
+            let activeSelectionEnd = 0;
+            if (activeEl && activeEl.dataset && activeEl.dataset.key) {
+                activeKey = activeEl.dataset.key;
+                try {
+                    activeSelectionStart = activeEl.selectionStart;
+                    activeSelectionEnd = activeEl.selectionEnd;
+                } catch(e) {}
+            }
+
             if (strategyList.length === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; color: #64748b; padding: 40px; background: white; border: 1px dashed #cbd5e1; border-radius: 8px;">
@@ -1989,11 +2002,13 @@
                                 <td style="padding: 6px 4px; font-weight: bold; color: #0f766e;">#${bIdx + 1}</td>
                                 <td style="padding: 6px 4px;">
                                     <input type="number" step="0.0001" placeholder="0.00" value="${b.price || ''}" 
+                                        data-key="buy-price-${index}-${bIdx}"
                                         oninput="updateStrategyBuy(${index}, ${bIdx}, 'price', this.value)" 
                                         style="width: 75px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
                                 </td>
                                 <td style="padding: 6px 4px;">
                                     <input type="number" step="0.01" placeholder="0.00" value="${b.amount || ''}" 
+                                        data-key="buy-amount-${index}-${bIdx}"
                                         oninput="updateStrategyBuy(${index}, ${bIdx}, 'amount', this.value)" 
                                         style="width: 75px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
                                 </td>
@@ -2002,11 +2017,12 @@
                                 </td>
                                 <td style="padding: 6px 4px;">
                                     <input type="number" min="0" max="100" placeholder="0-100" value="${b.fearVal || ''}" 
+                                        data-key="buy-fearVal-${index}-${bIdx}"
                                         oninput="updateStrategyBuy(${index}, ${bIdx}, 'fearVal', this.value)" 
                                         style="width: 60px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center;">
                                 </td>
                                 <td style="padding: 6px 4px;">
-                                    <select onchange="updateStrategyBuy(${index}, ${bIdx}, 'fearLevel', this.value)" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                    <select data-key="buy-fearLevel-${index}-${bIdx}" onchange="updateStrategyBuy(${index}, ${bIdx}, 'fearLevel', this.value)" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
                                         <option value="Fear" ${b.fearLevel === 'Fear' ? 'selected' : ''}>Fear</option>
                                         <option value="Extreme Fear" ${b.fearLevel === 'Extreme Fear' ? 'selected' : ''}>Extreme Fear</option>
                                     </select>
@@ -2035,12 +2051,14 @@
                                 <div style="flex: 1;">
                                     <label style="font-size: 12px; font-weight: bold; color: #92400e; display: block; margin-bottom: 4px;">ราคาเต็ม 100% ($):</label>
                                     <input type="number" step="0.0001" placeholder="เช่น 100.00" value="${item.targetPrice || ''}" 
+                                        data-key="targetPrice-${index}"
                                         oninput="updateStrategyField(${index}, 'targetPrice', this.value)" 
                                         style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;">
                                 </div>
                                 <div style="flex: 1;">
                                     <label style="font-size: 12px; font-weight: bold; color: #92400e; display: block; margin-bottom: 4px;">หุ้นสะสมทั้งหมด (100%):</label>
                                     <input type="number" step="0.00000001" placeholder="เช่น 1000" 
+                                        data-key="totalSharesManual-${index}"
                                         value="${planningShares ? planningShares.toFixed(8).replace(/\.?0+$/, '') : ''}" 
                                         ${hasBuys ? 'disabled style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f1f5f9; color: #64748b; font-size: 13px;"' : 'style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;" oninput="updateStrategyField(' + index + ', \'totalSharesManual\', this.value)"'} >
                                     ${hasBuys ? '<span style="font-size: 10px; color: #059669;">✔ ดึงอัตโนมัติจากฝั่งซื้อ</span>' : '<span style="font-size: 10px; color: #d97706;">✏ ป้อนเองเพื่อวางแผน</span>'}
@@ -2093,6 +2111,7 @@
                             </td>
                             <td style="padding: 6px 4px;">
                                 <input type="number" step="0.0001" placeholder="${isAutoCalculated ? displaySellPrice : '0.00'}" 
+                                    data-key="sell-price-${index}-${sIdx}"
                                     value="${s.isCustom ? (s.price || '') : ''}" 
                                     oninput="updateStrategySell(${index}, ${sIdx}, 'price', this.value)" 
                                     style="width: 75px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; ${isAutoCalculated ? 'border-color: #f59e0b; background: #fffbeb;' : ''}">
@@ -2103,11 +2122,12 @@
                             </td>
                             <td style="padding: 6px 4px; text-align: center;">
                                 <input type="number" min="0" max="100" placeholder="0-100" value="${s.fearVal || ''}" 
+                                    data-key="sell-fearVal-${index}-${sIdx}"
                                     oninput="updateStrategySell(${index}, ${sIdx}, 'fearVal', this.value)" 
                                     style="width: 50px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center;">
                             </td>
                             <td style="padding: 6px 4px;">
-                                <select onchange="updateStrategySell(${index}, ${sIdx}, 'status', this.value)" 
+                                <select data-key="sell-status-${index}-${sIdx}" onchange="updateStrategySell(${index}, ${sIdx}, 'status', this.value)" 
                                     style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; background: ${s.status === 'sold' ? '#d1fae5; color:#065f46;' : '#fef3c7; color:#92400e;'};">
                                     <option value="pending" ${s.status === 'pending' ? 'selected' : ''}>⏳ ยังไม่ขาย</option>
                                     <option value="sold" ${s.status === 'sold' ? 'selected' : ''}>✅ ขายแล้ว</option>
@@ -2135,6 +2155,19 @@
                 card.innerHTML = cardHTML;
                 container.appendChild(card);
             });
+
+            // คืนค่าตำแหน่งโฟกัสและเคอร์เซอร์หลังจัดทำ DOM ใหม่
+            if (activeKey) {
+                const restoredEl = container.querySelector(`[data-key="${activeKey}"]`);
+                if (restoredEl) {
+                    restoredEl.focus();
+                    if (restoredEl.setSelectionRange && restoredEl.type !== 'number' && restoredEl.type !== 'email') {
+                        try {
+                            restoredEl.setSelectionRange(activeSelectionStart, activeSelectionEnd);
+                        } catch (e) {}
+                    }
+                }
+            }
         }
         
         window.addStrategyStock = function() {
