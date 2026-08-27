@@ -1935,6 +1935,8 @@
                 });
                 const avgBuyPrice = totalShares > 0 ? (totalCost / totalShares) : 0;
                 
+                const hasBuys = buys.length > 0;
+                
                 // ใช้ยอดป้อนแมนวลเพื่อวางแผนขายเสมอ (แยกเป็นอิสระจากฝั่งซื้อ)
                 const planningShares = parseFloat(item.totalSharesManual) || 0;
                 
