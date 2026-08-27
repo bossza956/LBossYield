@@ -171,6 +171,7 @@
         <button id="btn-tab-simulator" class="tab-btn" onclick="switchTab('simulator')">🔮 จำลองซื้อเพิ่ม (Top-up)</button>
         <button id="btn-tab-transactions" class="tab-btn" onclick="switchTab('transactions')">📝 บันทึกประวัติซื้อ/ขาย</button>
         <button id="btn-tab-tx-portfolio" class="tab-btn" onclick="switchTab('tx-portfolio')">📂 พอร์ตหุ้นจริง (จากประวัติ)</button>
+        <button id="btn-tab-strategy" class="tab-btn" onclick="switchTab('strategy')">📈 กลยุทธ์ Fear & Greed</button>
     </div>
 
     <div id="tab-content-yield" class="calculator-wrapper">
@@ -515,6 +516,27 @@
         </div>
     </div>
 
+    <!-- แท็บใหม่: กลยุทธ์ Fear & Greed -->
+    <div id="tab-content-strategy" class="dashboard-container" style="display: none; max-width: 1300px; margin: 0 auto; margin-top: 10px;">
+        <div class="header-section" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>📈 แผนกลยุทธ์การลงทุนตาม Fear & Greed</h2>
+            <button class="btn-add" onclick="addStrategyStock()" style="margin-bottom: 0;">+ เพิ่มหุ้น/ETF ในกลยุทธ์</button>
+        </div>
+        
+        <div style="background-color: #f8fafc; border-left: 4px solid #6366f1; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; font-size: 14px; color: #475569;">
+            <strong>💡 คำแนะนำกลยุทธ์:</strong> 
+            สะสมหุ้นในราคาต้นทุนต่ำเมื่อตลาดเกิดความกลัว (Fear หรือ Extreme Fear) และทยอยขายทำกำไร 3 ไม้ ไม้ละ 20% (รวม 60%) เมื่อตลาดโลภจัด (Extreme Greed) โดยเหลือถือยาวรันเทรนด์อีก 40%
+        </div>
+
+        <div id="strategy-stocks-container">
+            <!-- รายการหุ้นจะถูกเติมด้วย JavaScript -->
+        </div>
+
+        <div class="action-group" style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn-backup" onclick="saveAndCalcStrategy(true)" style="background-color: #6366f1; color: white;">💾 บันทึกแผนกลยุทธ์</button>
+        </div>
+    </div>
+
     <script type="module">
         // 1. นำเข้า Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
@@ -548,12 +570,14 @@
             document.getElementById('tab-content-simulator').style.display = 'none';
             document.getElementById('tab-content-transactions').style.display = 'none';
             document.getElementById('tab-content-tx-portfolio').style.display = 'none';
+            document.getElementById('tab-content-strategy').style.display = 'none';
 
             document.getElementById('btn-tab-yield').classList.remove('active');
             document.getElementById('btn-tab-portfolio').classList.remove('active');
             document.getElementById('btn-tab-simulator').classList.remove('active');
             document.getElementById('btn-tab-transactions').classList.remove('active');
             document.getElementById('btn-tab-tx-portfolio').classList.remove('active');
+            document.getElementById('btn-tab-strategy').classList.remove('active');
 
             if (tabName === 'yield') {
                 document.getElementById('tab-content-yield').style.display = 'flex';
@@ -584,6 +608,10 @@
                 document.getElementById('tab-content-tx-portfolio').style.display = 'block';
                 document.getElementById('btn-tab-tx-portfolio').classList.add('active');
                 window.renderTxPortfolio();
+            } else if (tabName === 'strategy') {
+                document.getElementById('tab-content-strategy').style.display = 'block';
+                document.getElementById('btn-tab-strategy').classList.add('active');
+                window.renderStrategy();
             }
         }
 
@@ -826,7 +854,8 @@
                 rate: rate, 
                 items: data,
                 transactions: window.globalPortfolioData.transactions || [],
-                txSettings: window.globalPortfolioData.txSettings || {}
+                txSettings: window.globalPortfolioData.txSettings || {},
+                strategy: window.globalPortfolioData.strategy || []
             };
 
             // หน่วงเวลาเซฟขึ้น Firebase (ถ้าพิมพ์ต่อภายใน 1 วิ มันจะรีเซ็ตเวลาใหม่)
@@ -857,6 +886,9 @@
                     }
                     if (!window.globalPortfolioData.txSettings) {
                         window.globalPortfolioData.txSettings = {};
+                    }
+                    if (!window.globalPortfolioData.strategy) {
+                        window.globalPortfolioData.strategy = [];
                     }
                     if(data.rate) document.getElementById('global-rate').value = data.rate;
                     
@@ -896,6 +928,7 @@
             }
             calculateAllDashboardUI();
             if (window.renderTxPortfolio) window.renderTxPortfolio();
+            if (window.renderStrategy) window.renderStrategy();
         }
 
         // --- Backup & Restore (ปรับให้ทำงานร่วมกับตัวแปรส่วนกลาง) ---
@@ -935,6 +968,9 @@
                                 }
                                 if (!parsedData.txSettings) {
                                     parsedData.txSettings = {};
+                                }
+                                if (!parsedData.strategy) {
+                                    parsedData.strategy = [];
                                 }
 
                                 // ส่งขึ้น Firebase ทันที
@@ -1837,6 +1873,336 @@
                 window.saveAndCalcDashboard();
                 window.renderTransactions();
                 if (window.renderTxPortfolio) window.renderTxPortfolio();
+            }
+        }
+
+        // --- แท็บใหม่: แผนกลยุทธ์การลงทุนตาม Fear & Greed ---
+        window.renderStrategy = function() {
+            const container = document.getElementById('strategy-stocks-container');
+            if (!container) return;
+            
+            const strategyList = window.globalPortfolioData.strategy || [];
+            
+            if (strategyList.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 40px; background: white; border: 1px dashed #cbd5e1; border-radius: 8px;">
+                        ยังไม่มีรายการหุ้นในแผนกลยุทธ์ (กดปุ่ม "+ เพิ่มหุ้น/ETF ในกลยุทธ์" ด้านบนเพื่อเริ่มต้นวางแผน)
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            strategyList.forEach((item, index) => {
+                const buys = item.buys || [];
+                const sells = item.sells || [
+                    { price: '', fearVal: '75', status: 'pending' },
+                    { price: '', fearVal: '85', status: 'pending' },
+                    { price: '', fearVal: '95', status: 'pending' }
+                ];
+                
+                // ตรวจสอบและทำให้แผนการขายมี 3 ไม้เสมอ
+                while (sells.length < 3) {
+                    sells.push({ price: '', fearVal: '', status: 'pending' });
+                }
+                while (sells.length > 3) {
+                    sells.pop();
+                }
+                item.sells = sells; // อัปเดตเก็บกลับไป
+                
+                // คำนวณฝั่งซื้อสะสมรวมทั้งหมด
+                let totalShares = 0;
+                let totalCost = 0;
+                buys.forEach(b => {
+                    const sh = parseFloat(b.shares) || 0;
+                    const pr = parseFloat(b.price) || 0;
+                    totalShares += sh;
+                    totalCost += (sh * pr);
+                });
+                const avgBuyPrice = totalShares > 0 ? (totalCost / totalShares) : 0;
+                
+                // การแบ่งสัดส่วนขาย 3 ไม้ (ไม้ละ 20% ของยอดซื้อสะสมทั้งหมด)
+                const sharesPerTranche = totalShares * 0.20;
+                const keepShares = totalShares * 0.40;
+                
+                const card = document.createElement('div');
+                card.className = 'strategy-card';
+                card.style.cssText = 'background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);';
+                
+                // ส่วนหัวการ์ด
+                let cardHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 20px; font-weight: bold; color: #1e293b; background: #e0f2fe; padding: 4px 10px; border-radius: 6px; text-transform: uppercase;">${item.symbol}</span>
+                            <span style="font-size: 14px; color: #64748b;">ซื้อสะสม: <strong>${formatMoney(totalShares, 4)} หุ้น</strong> | ทุนเฉลี่ย: <strong>$${formatMoney(avgBuyPrice, 4)}</strong> | ยอดซื้อรวม: <strong>$${formatMoney(totalCost, 2)}</strong></span>
+                        </div>
+                        <button type="button" class="btn-delete" onclick="deleteStrategyStock(${index})" style="min-width:auto; padding: 4px 8px; font-size: 12px; background-color: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer;">🗑️ ลบหุ้นนี้</button>
+                    </div>
+                    
+                    <div class="strategy-grid" style="display: flex; flex-direction: row; gap: 20px; flex-wrap: wrap;">
+                        <!-- ฝั่งซื้อ -->
+                        <div style="flex: 1; min-width: 300px;">
+                            <h4 style="color: #0f766e; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                📥 รายการซื้อสะสม (Fear / Extreme Fear)
+                                <button type="button" onclick="addStrategyBuyTranche(${index})" style="padding: 2px 6px; font-size: 11px; background-color: #0d9488; color: white; border: none; border-radius: 4px; cursor: pointer;">+ เพิ่มไม้ซื้อ</button>
+                            </h4>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #e2e8f0; text-align: left; color: #475569;">
+                                        <th style="padding: 6px 4px;">ไม้ที่</th>
+                                        <th style="padding: 6px 4px;">ราคาซื้อ ($)</th>
+                                        <th style="padding: 6px 4px;">เงินลงทุน ($)</th>
+                                        <th style="padding: 6px 4px;">จำนวนหุ้น</th>
+                                        <th style="padding: 6px 4px;">Fear Value</th>
+                                        <th style="padding: 6px 4px;">ระดับความกลัว</th>
+                                        <th style="padding: 6px 4px; width: 30px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                if (buys.length === 0) {
+                    cardHTML += `
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #94a3b8; padding: 15px;">ยังไม่มีไม้ซื้อสะสม (กดปุ่ม "+ เพิ่มไม้ซื้อ" เพื่อบันทึก)</td>
+                        </tr>
+                    `;
+                } else {
+                    buys.forEach((b, bIdx) => {
+                        cardHTML += `
+                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                <td style="padding: 6px 4px; font-weight: bold; color: #0f766e;">#${bIdx + 1}</td>
+                                <td style="padding: 6px 4px;">
+                                    <input type="number" step="0.0001" placeholder="0.00" value="${b.price || ''}" 
+                                        oninput="updateStrategyBuy(${index}, ${bIdx}, 'price', this.value)" 
+                                        style="width: 75px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                </td>
+                                <td style="padding: 6px 4px;">
+                                    <input type="number" step="0.01" placeholder="0.00" value="${b.amount || ''}" 
+                                        oninput="updateStrategyBuy(${index}, ${bIdx}, 'amount', this.value)" 
+                                        style="width: 75px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                </td>
+                                <td style="padding: 6px 4px; font-weight: bold; color: #334155;">
+                                    ${formatMoney(parseFloat(b.shares) || 0, 4)}
+                                </td>
+                                <td style="padding: 6px 4px;">
+                                    <input type="number" min="0" max="100" placeholder="0-100" value="${b.fearVal || ''}" 
+                                        oninput="updateStrategyBuy(${index}, ${bIdx}, 'fearVal', this.value)" 
+                                        style="width: 60px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center;">
+                                </td>
+                                <td style="padding: 6px 4px;">
+                                    <select onchange="updateStrategyBuy(${index}, ${bIdx}, 'fearLevel', this.value)" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                        <option value="Fear" ${b.fearLevel === 'Fear' ? 'selected' : ''}>Fear</option>
+                                        <option value="Extreme Fear" ${b.fearLevel === 'Extreme Fear' ? 'selected' : ''}>Extreme Fear</option>
+                                    </select>
+                                </td>
+                                <td style="padding: 6px 4px; text-align: center;">
+                                    <button type="button" onclick="deleteStrategyBuyTranche(${index}, ${bIdx})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size: 14px;">🗑️</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                
+                cardHTML += `
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- ฝั่งขาย -->
+                        <div style="flex: 1; min-width: 300px; border-left: 1px dashed #e2e8f0; padding-left: 20px;">
+                            <h4 style="color: #b45309; margin-bottom: 10px;">
+                                📤 แผนการขายทำกำไร 3 ไม้ (Extreme Greed)
+                            </h4>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #e2e8f0; text-align: left; color: #475569;">
+                                        <th style="padding: 6px 4px;">ไม้ขาย</th>
+                                        <th style="padding: 6px 4px;">หุ้นที่จะขาย (20%)</th>
+                                        <th style="padding: 6px 4px;">ราคาขาย ($)</th>
+                                        <th style="padding: 6px 4px;">มูลค่าที่จะได้รับ ($)</th>
+                                        <th style="padding: 6px 4px;">Extreme Greed Target</th>
+                                        <th style="padding: 6px 4px;">สถานะ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                sells.forEach((s, sIdx) => {
+                    const sellPrice = parseFloat(s.price) || 0;
+                    const estimatedReturn = sharesPerTranche * sellPrice;
+                    
+                    cardHTML += `
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 6px 4px; font-weight: bold; color: #b45309;">ไม้ที่ ${sIdx + 1}</td>
+                            <td style="padding: 6px 4px; font-weight: bold; color: #334155;">
+                                ${formatMoney(sharesPerTranche, 4)}
+                            </td>
+                            <td style="padding: 6px 4px;">
+                                <input type="number" step="0.0001" placeholder="0.00" value="${s.price || ''}" 
+                                    oninput="updateStrategySell(${index}, ${sIdx}, 'price', this.value)" 
+                                    style="width: 75px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                            </td>
+                            <td style="padding: 6px 4px; font-weight: bold; color: #475569;">
+                                $${formatMoney(estimatedReturn, 2)}
+                            </td>
+                            <td style="padding: 6px 4px;">
+                                <input type="number" min="0" max="100" placeholder="0-100" value="${s.fearVal || ''}" 
+                                    oninput="updateStrategySell(${index}, ${sIdx}, 'fearVal', this.value)" 
+                                    style="width: 60px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center;">
+                            </td>
+                            <td style="padding: 6px 4px;">
+                                <select onchange="updateStrategySell(${index}, ${sIdx}, 'status', this.value)" 
+                                    style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; background: ${s.status === 'sold' ? '#d1fae5; color:#065f46;' : '#fef3c7; color:#92400e;'};">
+                                    <option value="pending" ${s.status === 'pending' ? 'selected' : ''}>⏳ ยังไม่ขาย</option>
+                                    <option value="sold" ${s.status === 'sold' ? 'selected' : ''}>✅ ขายแล้ว</option>
+                                </select>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                cardHTML += `
+                                </tbody>
+                            </table>
+                            
+                            <!-- สรุปผลส่วนถือยาวรันเทรนด์ 40% -->
+                            <div style="margin-top: 15px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 13px; font-weight: bold; color: #166534;">🌳 ส่วนของถือยาวรันเทรนด์ระยะยาว (40%):</span>
+                                <span style="font-size: 14px; font-weight: bold; color: #15803d;">
+                                    ${formatMoney(keepShares, 4)} หุ้น (มูลค่าสะสมประมาณ $${formatMoney(keepShares * avgBuyPrice, 2)})
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                card.innerHTML = cardHTML;
+                container.appendChild(card);
+            });
+        }
+        
+        window.addStrategyStock = function() {
+            const symbol = prompt("กรุณาระบุชื่อหุ้น หรือ ETF ที่ต้องการเพิ่มในแผนกลยุทธ์:").trim().toUpperCase();
+            if (!symbol) return;
+            
+            const strategyList = window.globalPortfolioData.strategy || [];
+            
+            // ตรวจสอบว่ามีหุ้นตัวนี้ในแผนแล้วหรือยัง
+            const exists = strategyList.some(item => item.symbol === symbol);
+            if (exists) {
+                alert(`หุ้น ${symbol} มีรายชื่ออยู่ในกลยุทธ์แล้วครับ!`);
+                return;
+            }
+            
+            strategyList.push({
+                symbol: symbol,
+                buys: [],
+                sells: [
+                    { price: '', fearVal: '75', status: 'pending' },
+                    { price: '', fearVal: '85', status: 'pending' },
+                    { price: '', fearVal: '95', status: 'pending' }
+                ]
+            });
+            
+            window.globalPortfolioData.strategy = strategyList;
+            window.renderStrategy();
+        }
+        
+        window.deleteStrategyStock = function(index) {
+            const strategyList = window.globalPortfolioData.strategy || [];
+            const symbol = strategyList[index] ? strategyList[index].symbol : 'หุ้นนี้';
+            
+            if (confirm(`คุณต้องการลบสัญลักษณ์ ${symbol} ออกจากแผนกลยุทธ์ใช่หรือไม่? (ข้อมูลภายในจะสูญหาย)`)) {
+                strategyList.splice(index, 1);
+                window.globalPortfolioData.strategy = strategyList;
+                window.renderStrategy();
+            }
+        }
+        
+        window.addStrategyBuyTranche = function(stockIndex) {
+            const strategyList = window.globalPortfolioData.strategy || [];
+            const item = strategyList[stockIndex];
+            if (!item) return;
+            
+            if (!item.buys) item.buys = [];
+            
+            item.buys.push({
+                id: Date.now().toString(),
+                price: '',
+                amount: '',
+                shares: 0,
+                fearVal: '',
+                fearLevel: 'Fear'
+            });
+            
+            window.renderStrategy();
+        }
+        
+        window.deleteStrategyBuyTranche = function(stockIndex, buyIndex) {
+            const strategyList = window.globalPortfolioData.strategy || [];
+            const item = strategyList[stockIndex];
+            if (!item || !item.buys) return;
+            
+            item.buys.splice(buyIndex, 1);
+            window.renderStrategy();
+        }
+        
+        window.updateStrategyBuy = function(stockIndex, buyIndex, field, value) {
+            const strategyList = window.globalPortfolioData.strategy || [];
+            const item = strategyList[stockIndex];
+            if (!item || !item.buys || !item.buys[buyIndex]) return;
+            
+            const b = item.buys[buyIndex];
+            b[field] = value;
+            
+            // คำนวณจำนวนหุ้นอัตโนมัติหากราคาซื้อและจำนวนเงินลงทุนสมบูรณ์
+            if (field === 'price' || field === 'amount') {
+                const pr = parseFloat(b.price) || 0;
+                const am = parseFloat(b.amount) || 0;
+                b.shares = pr > 0 ? (am / pr) : 0;
+            }
+            
+            // เพื่อไม่ให้พิมพ์ยากจากการเขียนทับโฟกัสระหว่างพิมพ์ 
+            // เราจะทำการอัปเดตการแสดงผลโดยตรง
+            window.renderStrategy();
+        }
+        
+        window.updateStrategySell = function(stockIndex, sellIndex, field, value) {
+            const strategyList = window.globalPortfolioData.strategy || [];
+            const item = strategyList[stockIndex];
+            if (!item || !item.sells || !item.sells[sellIndex]) return;
+            
+            item.sells[sellIndex][field] = value;
+            window.renderStrategy();
+        }
+        
+        window.saveAndCalcStrategy = async function(showAlert = false) {
+            const statusEl = document.getElementById('save-status');
+            if (statusEl) {
+                statusEl.innerText = "⏳ กำลังบันทึกข้อมูลกลยุทธ์...";
+                statusEl.style.color = "#d97706";
+            }
+            
+            try {
+                // บันทึกขึ้นคลาวด์ Firestore
+                await setDoc(docRef, window.globalPortfolioData);
+                
+                if (statusEl) {
+                    statusEl.innerText = "🟢 บันทึกข้อมูลเรียบร้อยแล้ว";
+                    statusEl.style.color = "#059669";
+                }
+                if (showAlert) {
+                    alert("💾 บันทึกแผนกลยุทธ์ Fear & Greed ลงระบบคลาวด์เรียบร้อยแล้วครับ!");
+                }
+            } catch (error) {
+                console.error("Error saving strategy:", error);
+                if (statusEl) {
+                    statusEl.innerText = "🔴 ข้อผิดพลาดในการบันทึกข้อมูล";
+                    statusEl.style.color = "#ef4444";
+                }
+                alert("🔴 ไม่สามารถบันทึกแผนกลยุทธ์ลงฐานข้อมูลคลาวด์ได้ในขณะนี้");
             }
         }
 
