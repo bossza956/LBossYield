@@ -1935,17 +1935,12 @@
                 });
                 const avgBuyPrice = totalShares > 0 ? (totalCost / totalShares) : 0;
                 
-                // ตรวจสอบว่ามีการบันทึกไม้ซื้อจริงหรือไม่
-                const hasBuys = buys.length > 0;
-                // ถ้ามีไม้ซื้อจริง ให้ใช้ยอดซื้อสะสมเป็นฐาน 100% ถ้าไม่มี ให้ใช้ยอดป้อนแมนวลเพื่อวางแผนล่วงหน้า
-                const planningShares = hasBuys ? totalShares : (parseFloat(item.totalSharesManual) || 0);
+                // ใช้ยอดป้อนแมนวลเพื่อวางแผนขายเสมอ (แยกเป็นอิสระจากฝั่งซื้อ)
+                const planningShares = parseFloat(item.totalSharesManual) || 0;
                 
-                // การแบ่งสัดส่วนขาย 3 ไม้ (ไม้ละ 20% ของยอดซื้อสะสมทั้งหมด)
+                // การแบ่งสัดส่วนขาย 3 ไม้ (ไม้ละ 20% ของยอดหุ้นสะสมทั้งหมด)
                 const sharesPerTranche = planningShares * 0.20;
                 const keepShares = planningShares * 0.40;
-                
-                // ดึงราคาเป้าหมาย 100%
-                const targetPrice100 = parseFloat(item.targetPrice) || 0;
                 
                 const card = document.createElement('div');
                 card.className = 'strategy-card';
@@ -2056,12 +2051,10 @@
                                 <div style="flex: 1;">
                                     <input type="text" inputmode="decimal" placeholder="เช่น 1000.50" 
                                         data-key="totalSharesManual-${index}"
-                                        value="${hasBuys ? totalShares.toFixed(4).replace(/\.?0+$/, '') : (item.totalSharesManual || '')}" 
-                                        ${hasBuys ? 'disabled style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f1f5f9; color: #64748b; font-size: 13px;"' : 'style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;" oninput="updateStrategyField(' + index + ', \'totalSharesManual\', this.value)"'} >
+                                        value="${item.totalSharesManual || ''}" 
+                                        style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;" 
+                                        oninput="updateStrategyField(${index}, 'totalSharesManual', this.value)">
                                 </div>
-                                <span style="font-size: 12px; color: #92400e; font-weight: 500;">
-                                    ${hasBuys ? '✔ ดึงอัตโนมัติจากฝั่งซื้อ' : '✏ ป้อนจำนวนหุ้นเองเพื่อวางแผน'}
-                                </span>
                             </div>
                             
                             <div class="table-responsive" style="overflow-x: auto; width: 100%;">
