@@ -498,20 +498,15 @@
                 <div class="summary-value" style="color: #1e40af;" id="txp-total-cost-usd">$0.00</div>
                 <div class="summary-thb" style="color: #b45309;" id="txp-total-cost-thb">0.00 ฿</div>
             </div>
-            <div class="summary-box highlight" style="background: #f0fdf4; border-color: #4ade80;">
-                <div class="summary-title" style="color: #047857;">เฉลี่ยต่อเดือน (Net 15%)</div>
-                <div class="summary-value" style="color: #065f46;" id="txp-total-monthly-net-usd">$0.00</div>
-                <div class="summary-thb" style="color: #b45309;" id="txp-total-monthly-net-thb">0.00 ฿</div>
-            </div>
             <div class="summary-box">
-                <div class="summary-title" style="color:#475569;">รวมทั้งปี (Gross)</div>
-                <div class="summary-value" style="color:#475569;" id="txp-total-gross-usd">$0.00</div>
-                <div class="summary-thb" style="color:#475569;" id="txp-total-gross-thb">0.00 ฿</div>
+                <div class="summary-title" style="color: #0284c7;">มูลค่าตลาด (Market Value)</div>
+                <div class="summary-value" style="color: #0369a1;" id="txp-total-market-usd">$0.00</div>
+                <div class="summary-thb" style="color: #b45309;" id="txp-total-market-thb">0.00 ฿</div>
             </div>
-            <div class="summary-box">
-                <div class="summary-title" style="color: #047857;">รวมทั้งปี (Net 15%)</div>
-                <div class="summary-value" style="color: #065f46;" id="txp-total-net-usd">$0.00</div>
-                <div class="summary-thb" style="color: #b45309;" id="txp-total-net-thb">0.00 ฿</div>
+            <div class="summary-box highlight" id="txp-profit-box" style="background: #f0fdf4; border-color: #4ade80;">
+                <div class="summary-title" id="txp-profit-title" style="color: #047857;">กำไรของพอร์ต (Portfolio Profit)</div>
+                <div class="summary-value" style="color: #065f46;" id="txp-total-profit-usd">$0.00 (0.00%)</div>
+                <div class="summary-thb" style="color: #b45309;" id="txp-total-profit-thb">0.00 ฿</div>
             </div>
         </div>
     </div>
@@ -1367,12 +1362,16 @@
                 txpBody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:#64748b; padding:20px;">ยังไม่มีข้อมูลหุ้นในพอร์ต (กดปุ่ม "+ เพิ่มรายการหุ้นเริ่มต้น" เพื่อเริ่มต้น)</td></tr>`;
                 document.getElementById('txp-total-cost-usd').innerText = '$0.00';
                 document.getElementById('txp-total-cost-thb').innerText = '0.00 ฿';
-                document.getElementById('txp-total-monthly-net-usd').innerText = '$0.00';
-                document.getElementById('txp-total-monthly-net-thb').innerText = '0.00 ฿';
-                document.getElementById('txp-total-gross-usd').innerText = '$0.00';
-                document.getElementById('txp-total-gross-thb').innerText = '0.00 ฿';
-                document.getElementById('txp-total-net-usd').innerText = '$0.00';
-                document.getElementById('txp-total-net-thb').innerText = '0.00 ฿';
+                document.getElementById('txp-total-market-usd').innerText = '$0.00';
+                document.getElementById('txp-total-market-thb').innerText = '0.00 ฿';
+                document.getElementById('txp-total-profit-usd').innerText = '$0.00 (0.00%)';
+                document.getElementById('txp-total-profit-thb').innerText = '0.00 ฿';
+                
+                const profitBox = document.getElementById('txp-profit-box');
+                if (profitBox) {
+                    profitBox.style.background = '#f0fdf4';
+                    profitBox.style.borderColor = '#4ade80';
+                }
                 return;
             }
 
@@ -1506,15 +1505,41 @@
             });
 
             // อัปเดตยอดสรุปรวมทั้งหมด
-            const sumMonthlyNetUSD = sumNetAnnualUSD / 12;
             document.getElementById('txp-total-cost-usd').innerText = '$' + formatMoney(sumCostUSD);
             document.getElementById('txp-total-cost-thb').innerText = formatMoney(sumCostUSD * rate) + ' ฿';
-            document.getElementById('txp-total-monthly-net-usd').innerText = '$' + formatMoney(sumMonthlyNetUSD);
-            document.getElementById('txp-total-monthly-net-thb').innerText = formatMoney(sumMonthlyNetUSD * rate) + ' ฿';
-            document.getElementById('txp-total-gross-usd').innerText = '$' + formatMoney(sumGrossAnnualUSD);
-            document.getElementById('txp-total-gross-thb').innerText = formatMoney(sumGrossAnnualUSD * rate) + ' ฿';
-            document.getElementById('txp-total-net-usd').innerText = '$' + formatMoney(sumNetAnnualUSD);
-            document.getElementById('txp-total-net-thb').innerText = formatMoney(sumNetAnnualUSD * rate) + ' ฿';
+            
+            document.getElementById('txp-total-market-usd').innerText = '$' + formatMoney(sumMarketValueUSD);
+            document.getElementById('txp-total-market-thb').innerText = formatMoney(sumMarketValueUSD * rate) + ' ฿';
+            
+            const totalProfitUSD = sumMarketValueUSD - sumCostUSD;
+            const totalProfitPct = sumCostUSD > 0 ? (totalProfitUSD / sumCostUSD) * 100 : 0;
+            const profitSign = totalProfitUSD >= 0 ? '+' : '';
+            
+            const profitValEl = document.getElementById('txp-total-profit-usd');
+            const profitThbEl = document.getElementById('txp-total-profit-thb');
+            const profitBoxEl = document.getElementById('txp-profit-box');
+            const profitTitleEl = document.getElementById('txp-profit-title');
+            
+            profitValEl.innerText = `${profitSign}$${formatMoney(totalProfitUSD)} (${profitSign}${totalProfitPct.toFixed(2)}%)`;
+            profitThbEl.innerText = `${profitSign}${formatMoney(totalProfitUSD * rate)} ฿`;
+            
+            // ปรับสีกล่องกำไร/ขาดทุนตามค่าจริง
+            if (totalProfitUSD > 0) {
+                profitBoxEl.style.background = '#f0fdf4';
+                profitBoxEl.style.borderColor = '#4ade80';
+                profitTitleEl.style.color = '#047857';
+                profitValEl.style.color = '#065f46';
+            } else if (totalProfitUSD < 0) {
+                profitBoxEl.style.background = '#fef2f2';
+                profitBoxEl.style.borderColor = '#fca5a5';
+                profitTitleEl.style.color = '#b91c1c';
+                profitValEl.style.color = '#991b1b';
+            } else {
+                profitBoxEl.style.background = '#f8fafc';
+                profitBoxEl.style.borderColor = '#cbd5e1';
+                profitTitleEl.style.color = '#475569';
+                profitValEl.style.color = '#334155';
+            }
         }
 
         window.saveAndCalcTxPortfolio = function(showAlert = false) {
