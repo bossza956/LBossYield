@@ -1942,8 +1942,13 @@
                 
                 // การแบ่งสัดส่วนขาย 3 ไม้ (ไม้ละ 20% ของยอดหุ้นสะสมทั้งหมด)
                 let sharesPerTranche = planningShares * 0.20;
-                if (item.roundToInteger) {
+                const roundingMode = item.roundingMode || (item.roundToInteger ? 'round' : 'none');
+                if (roundingMode === 'round') {
                     sharesPerTranche = Math.round(sharesPerTranche);
+                } else if (roundingMode === 'floor') {
+                    sharesPerTranche = Math.floor(sharesPerTranche);
+                } else if (roundingMode === 'ceil') {
+                    sharesPerTranche = Math.ceil(sharesPerTranche);
                 }
                 const keepShares = Math.max(0, planningShares - (sharesPerTranche * 3));
                 
@@ -2062,14 +2067,17 @@
                                             oninput="updateStrategyField(${index}, 'totalSharesManual', this.value)">
                                     </div>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 8px; padding-top: 4px; border-top: 1px dashed #fde68a;">
-                                    <input type="checkbox" id="round-integer-${index}" data-key="roundToInteger-${index}"
-                                        ${item.roundToInteger ? 'checked' : ''} 
-                                        onchange="updateStrategyField(${index}, 'roundToInteger', this.checked)"
-                                        style="cursor: pointer; width: 16px; height: 16px; margin: 0;">
-                                    <label for="round-integer-${index}" style="font-size: 12px; font-weight: bold; color: #92400e; cursor: pointer; user-select: none; margin: 0;">
-                                        ปัดเศษหุ้นเป็นจำนวนเต็มสำหรับการขาย (สำหรับ Broker ที่ไม่รองรับเศษหุ้น เช่น NVDA 3.5013 หุ้น -> 4 หุ้น)
-                                    </label>
+                                <div style="display: flex; align-items: center; gap: 15px; padding-top: 6px; border-top: 1px dashed #fde68a; width: 100%;">
+                                    <span style="font-size: 12px; font-weight: bold; color: #92400e; min-width: 160px;">การจัดการเศษหุ้นขาย:</span>
+                                    <div style="flex: 1;">
+                                        <select data-key="roundingMode-${index}" onchange="updateStrategyField(${index}, 'roundingMode', this.value)"
+                                            style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; cursor: pointer; background: white; color: #92400e; font-weight: bold;">
+                                            <option value="none" ${roundingMode === 'none' ? 'selected' : ''}>❌ ไม่ปัดเศษ (ทศนิยมตามจริง)</option>
+                                            <option value="floor" ${roundingMode === 'floor' ? 'selected' : ''}>⬇ ปัดเศษลงเป็นจำนวนเต็ม (Floor)</option>
+                                            <option value="ceil" ${roundingMode === 'ceil' ? 'selected' : ''}>⬆ ปัดเศษขึ้นเป็นจำนวนเต็ม (Ceil)</option>
+                                            <option value="round" ${roundingMode === 'round' ? 'selected' : ''}>↔ ปัดเศษตามหลักคณิตศาสตร์ (ปัดตัวใกล้สุด)</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             
