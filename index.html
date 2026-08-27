@@ -1965,25 +1965,26 @@
                         <button type="button" class="btn-delete" onclick="deleteStrategyStock(${index})" style="min-width:auto; padding: 4px 8px; font-size: 12px; background-color: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer;">🗑️ ลบหุ้นนี้</button>
                     </div>
                     
-                    <div class="strategy-grid" style="display: flex; flex-direction: row; gap: 20px; flex-wrap: wrap;">
+                    <div class="strategy-vertical" style="display: flex; flex-direction: column; gap: 25px;">
                         <!-- ฝั่งซื้อ -->
-                        <div style="flex: 1.1; min-width: 320px;">
-                            <h4 style="color: #0f766e; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-                                📥 รายการซื้อสะสม (Fear / Extreme Fear)
-                                <button type="button" onclick="addStrategyBuyTranche(${index})" style="padding: 2px 6px; font-size: 11px; background-color: #0d9488; color: white; border: none; border-radius: 4px; cursor: pointer;">+ เพิ่มไม้ซื้อ</button>
+                        <div style="width: 100%;">
+                            <h4 style="color: #0f766e; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f766e; padding-bottom: 6px;">
+                                📥 รายการซื้อสะสม (เมื่อดัชนีเป็น Fear / Extreme Fear)
+                                <button type="button" onclick="addStrategyBuyTranche(${index})" style="padding: 4px 10px; font-size: 12px; background-color: #0d9488; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">+ เพิ่มไม้ซื้อ</button>
                             </h4>
-                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                                <thead>
-                                    <tr style="border-bottom: 1px solid #e2e8f0; text-align: left; color: #475569;">
-                                        <th style="padding: 6px 4px;">ไม้ที่</th>
-                                        <th style="padding: 6px 4px;">ราคาซื้อ ($)</th>
-                                        <th style="padding: 6px 4px;">เงินลงทุน ($)</th>
-                                        <th style="padding: 6px 4px;">จำนวนหุ้น</th>
-                                        <th style="padding: 6px 4px;">Fear Value</th>
-                                        <th style="padding: 6px 4px;">ระดับความกลัว</th>
-                                        <th style="padding: 6px 4px; width: 30px;"></th>
-                                    </tr>
-                                </thead>
+                            <div class="table-responsive" style="overflow-x: auto; width: 100%;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid #e2e8f0; text-align: left; color: #475569; background: #f8fafc;">
+                                            <th style="padding: 8px 6px; width: 60px;">ไม้ที่</th>
+                                            <th style="padding: 8px 6px; width: 120px;">ราคาซื้อต่อหุ้น ($)</th>
+                                            <th style="padding: 8px 6px; width: 120px;">เงินลงทุน ($)</th>
+                                            <th style="padding: 8px 6px; width: 140px;">จำนวนหุ้นที่ได้</th>
+                                            <th style="padding: 8px 6px; text-align: center; width: 130px;">Fear Value (0-100)</th>
+                                            <th style="padding: 8px 6px; width: 140px;">ระดับความกลัว</th>
+                                            <th style="padding: 8px 6px; width: 50px; text-align: center;">ลบ</th>
+                                        </tr>
+                                    </thead>
                                 <tbody>
                 `;
                 
@@ -1991,7 +1992,7 @@
                     cardHTML += `
                         <tr>
                             <td colspan="7" style="text-align: center; color: #94a3b8; padding: 25px; background: #f8fafc; border-radius: 6px;">
-                                ยังไม่มีไม้ซื้อสะสมจริง (ระบบจะดึงจำนวนหุ้นจากช่อง "จำนวนหุ้นสะสม 100%" ฝั่งขวามาใช้วางแผน)
+                                ยังไม่มีไม้ซื้อสะสมจริง (ระบบจะดึงจำนวนหุ้นจากช่อง "หุ้นสะสมทั้งหมด" ด้านล่างมาใช้จำลองแผนขาย)
                             </td>
                         </tr>
                     `;
@@ -1999,36 +2000,36 @@
                     buys.forEach((b, bIdx) => {
                         cardHTML += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding: 6px 4px; font-weight: bold; color: #0f766e;">#${bIdx + 1}</td>
-                                <td style="padding: 6px 4px;">
+                                <td style="padding: 8px 6px; font-weight: bold; color: #0f766e;">#${bIdx + 1}</td>
+                                <td style="padding: 8px 6px;">
                                     <input type="text" inputmode="decimal" placeholder="0.00" value="${b.price || ''}" 
                                         data-key="buy-price-${index}-${bIdx}"
                                         oninput="updateStrategyBuy(${index}, ${bIdx}, 'price', this.value)" 
-                                        style="width: 75px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                        style="width: 100px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
                                 </td>
-                                <td style="padding: 6px 4px;">
+                                <td style="padding: 8px 6px;">
                                     <input type="text" inputmode="decimal" placeholder="0.00" value="${b.amount || ''}" 
                                         data-key="buy-amount-${index}-${bIdx}"
                                         oninput="updateStrategyBuy(${index}, ${bIdx}, 'amount', this.value)" 
-                                        style="width: 75px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                        style="width: 100px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
                                 </td>
-                                <td style="padding: 6px 4px; font-weight: bold; color: #334155;">
-                                    ${formatMoney(parseFloat(b.shares) || 0, 4)}
+                                <td style="padding: 8px 6px; font-weight: bold; color: #334155;">
+                                    ${formatMoney(parseFloat(b.shares) || 0, 4)} หุ้น
                                 </td>
-                                <td style="padding: 6px 4px;">
+                                <td style="padding: 8px 6px; text-align: center;">
                                     <input type="text" inputmode="numeric" placeholder="0-100" value="${b.fearVal || ''}" 
                                         data-key="buy-fearVal-${index}-${bIdx}"
                                         oninput="updateStrategyBuy(${index}, ${bIdx}, 'fearVal', this.value)" 
-                                        style="width: 60px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center;">
+                                        style="width: 80px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center;">
                                 </td>
-                                <td style="padding: 6px 4px;">
-                                    <select data-key="buy-fearLevel-${index}-${bIdx}" onchange="updateStrategyBuy(${index}, ${bIdx}, 'fearLevel', this.value)" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                <td style="padding: 8px 6px;">
+                                    <select data-key="buy-fearLevel-${index}-${bIdx}" onchange="updateStrategyBuy(${index}, ${bIdx}, 'fearLevel', this.value)" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
                                         <option value="Fear" ${b.fearLevel === 'Fear' ? 'selected' : ''}>Fear</option>
                                         <option value="Extreme Fear" ${b.fearLevel === 'Extreme Fear' ? 'selected' : ''}>Extreme Fear</option>
                                     </select>
                                 </td>
-                                <td style="padding: 6px 4px; text-align: center;">
-                                    <button type="button" onclick="deleteStrategyBuyTranche(${index}, ${bIdx})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size: 14px;">🗑️</button>
+                                <td style="padding: 8px 6px; text-align: center;">
+                                    <button type="button" onclick="deleteStrategyBuyTranche(${index}, ${bIdx})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size: 16px;">🗑️</button>
                                 </td>
                             </tr>
                         `;
@@ -2040,34 +2041,42 @@
                             </table>
                         </div>
                         
+                        <!-- เส้นคั่น -->
+                        <div style="border-top: 1px dashed #cbd5e1; margin: 10px 0;"></div>
+                        
                         <!-- ฝั่งขาย -->
-                        <div style="flex: 1.1; min-width: 320px; border-left: 1px dashed #e2e8f0; padding-left: 20px;">
-                            <h4 style="color: #b45309; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-                                📤 แผนการขายทำกำไร 3 ไม้ (Extreme Greed)
+                        <div style="width: 100%;">
+                            <h4 style="color: #b45309; margin-bottom: 12px; border-bottom: 2px solid #b45309; padding-bottom: 6px;">
+                                📤 แผนการขายทำกำไร 3 ไม้ (เมื่อดัชนีเป็น Extreme Greed)
                             </h4>
                             
                             <!-- กล่องกรอกข้อมูลจำนวนหุ้นตั้งต้น 100% -->
-                            <div style="margin-bottom: 15px; background: #fffbeb; border: 1px solid #fde68a; padding: 10px; border-radius: 6px;">
-                                <label style="font-size: 12px; font-weight: bold; color: #92400e; display: block; margin-bottom: 4px;">หุ้นสะสมทั้งหมด (100%):</label>
-                                <input type="text" inputmode="decimal" placeholder="เช่น 1000" 
-                                    data-key="totalSharesManual-${index}"
-                                    value="${planningShares ? planningShares.toFixed(8).replace(/\.?0+$/, '') : ''}" 
-                                    ${hasBuys ? 'disabled style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f1f5f9; color: #64748b; font-size: 13px;"' : 'style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;" oninput="updateStrategyField(' + index + ', \'totalSharesManual\', this.value)"'} >
-                                ${hasBuys ? '<span style="font-size: 10px; color: #059669;">✔ ดึงอัตโนมัติจากฝั่งซื้อ</span>' : '<span style="font-size: 10px; color: #d97706;">✏ ป้อนเองเพื่อวางแผน</span>'}
+                            <div style="margin-bottom: 15px; background: #fffbeb; border: 1px solid #fde68a; padding: 12px; border-radius: 6px; display: flex; align-items: center; gap: 15px;">
+                                <span style="font-size: 13px; font-weight: bold; color: #92400e; min-width: 160px;">หุ้นสะสมทั้งหมด (100%):</span>
+                                <div style="flex: 1;">
+                                    <input type="text" inputmode="decimal" placeholder="เช่น 1000.50" 
+                                        data-key="totalSharesManual-${index}"
+                                        value="${hasBuys ? totalShares.toFixed(4).replace(/\.?0+$/, '') : (item.totalSharesManual || '')}" 
+                                        ${hasBuys ? 'disabled style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f1f5f9; color: #64748b; font-size: 13px;"' : 'style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;" oninput="updateStrategyField(' + index + ', \'totalSharesManual\', this.value)"'} >
+                                </div>
+                                <span style="font-size: 12px; color: #92400e; font-weight: 500;">
+                                    ${hasBuys ? '✔ ดึงอัตโนมัติจากฝั่งซื้อ' : '✏ ป้อนจำนวนหุ้นเองเพื่อวางแผน'}
+                                </span>
                             </div>
                             
-                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                                <thead>
-                                    <tr style="border-bottom: 1px solid #e2e8f0; text-align: left; color: #475569;">
-                                        <th style="padding: 6px 4px;">ไม้ขาย</th>
-                                        <th style="padding: 6px 4px;">หุ้นที่จะขาย (20%)</th>
-                                        <th style="padding: 6px 4px;">ราคาขาย ($)</th>
-                                        <th style="padding: 6px 4px;">มูลค่าที่จะได้รับ ($)</th>
-                                        <th style="padding: 6px 4px; text-align: center;">Greed Target</th>
-                                        <th style="padding: 6px 4px;">สถานะ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                            <div class="table-responsive" style="overflow-x: auto; width: 100%;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid #e2e8f0; text-align: left; color: #475569; background: #fffbeb;">
+                                            <th style="padding: 8px 6px; width: 100px;">ไม้ขาย</th>
+                                            <th style="padding: 8px 6px; width: 150px;">หุ้นที่จะขาย (20%)</th>
+                                            <th style="padding: 8px 6px; width: 120px;">ราคาขายต่อหุ้น ($)</th>
+                                            <th style="padding: 8px 6px; width: 140px;">มูลค่าที่จะได้รับ ($)</th>
+                                            <th style="padding: 8px 6px; text-align: center; width: 180px;">Extreme Greed Target (0-100)</th>
+                                            <th style="padding: 8px 6px; width: 130px;">สถานะ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
                 `;
                 
                 sells.forEach((s, sIdx) => {
@@ -2077,31 +2086,31 @@
                     
                     cardHTML += `
                         <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 6px 4px; font-weight: bold; color: #b45309;">
+                            <td style="padding: 8px 6px; font-weight: bold; color: #b45309;">
                                 ไม้ที่ ${sIdx + 1}
                             </td>
-                            <td style="padding: 6px 4px; font-weight: bold; color: #334155;">
-                                ${formatMoney(sharesPerTranche, 4)}
+                            <td style="padding: 8px 6px; font-weight: bold; color: #334155;">
+                                ${formatMoney(sharesPerTranche, 4)} หุ้น
                             </td>
-                            <td style="padding: 6px 4px;">
+                            <td style="padding: 8px 6px;">
                                 <input type="text" inputmode="decimal" placeholder="0.00" 
                                     data-key="sell-price-${index}-${sIdx}"
                                     value="${displaySellPrice}" 
                                     oninput="updateStrategySell(${index}, ${sIdx}, 'price', this.value)" 
-                                    style="width: 75px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                    style="width: 100px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
                             </td>
-                            <td style="padding: 6px 4px; font-weight: bold; color: #475569;">
+                            <td style="padding: 8px 6px; font-weight: bold; color: #475569;">
                                 $${formatMoney(estimatedReturn, 2)}
                             </td>
-                            <td style="padding: 6px 4px; text-align: center;">
+                            <td style="padding: 8px 6px; text-align: center;">
                                 <input type="text" inputmode="numeric" placeholder="0-100" value="${s.fearVal || ''}" 
                                     data-key="sell-fearVal-${index}-${sIdx}"
                                     oninput="updateStrategySell(${index}, ${sIdx}, 'fearVal', this.value)" 
-                                    style="width: 50px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center;">
+                                    style="width: 80px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center;">
                             </td>
-                            <td style="padding: 6px 4px;">
+                            <td style="padding: 8px 6px;">
                                 <select data-key="sell-status-${index}-${sIdx}" onchange="updateStrategySell(${index}, ${sIdx}, 'status', this.value)" 
-                                    style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; background: ${s.status === 'sold' ? '#d1fae5; color:#065f46;' : '#fef3c7; color:#92400e;'};">
+                                    style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; background: ${s.status === 'sold' ? '#d1fae5; color:#065f46;' : '#fef3c7; color:#92400e;'};">
                                     <option value="pending" ${s.status === 'pending' ? 'selected' : ''}>⏳ ยังไม่ขาย</option>
                                     <option value="sold" ${s.status === 'sold' ? 'selected' : ''}>✅ ขายแล้ว</option>
                                 </select>
@@ -2111,11 +2120,12 @@
                 });
                 
                 cardHTML += `
-                                </tbody>
-                            </table>
+                                    </tbody>
+                                </table>
+                            </div>
                             
                             <!-- สรุปผลส่วนถือยาวรันเทรนด์ 40% -->
-                            <div style="margin-top: 15px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="margin-top: 15px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 13px; font-weight: bold; color: #166534;">🌳 ส่วนของถือยาวรันเทรนด์ระยะยาว (40%):</span>
                                 <span style="font-size: 14px; font-weight: bold; color: #15803d;">
                                     ${formatMoney(keepShares, 4)} หุ้น ${hasBuys ? `(มูลค่าต้นทุนสะสมประมาณ $${formatMoney(keepShares * avgBuyPrice, 2)})` : ''}
