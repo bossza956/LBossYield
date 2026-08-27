@@ -249,9 +249,12 @@
         <div class="dashboard-container">
             <div class="header-section">
                 <h2>📊 L Boss Portfolio <span id="save-status">🟢 ข้อมูลซิงค์ล่าสุดแล้ว</span></h2>
-                <div class="global-settings" style="margin-bottom: 0;">
-                    <label>เรทเงิน (1 USD = THB):</label>
-                    <input type="number" id="global-rate" value="32.63" step="0.01" oninput="saveAndCalcDashboard()">
+                <div class="global-settings" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+                    <label style="margin-right: 4px;">เรทเงิน (1 USD = THB):</label>
+                    <input type="number" id="global-rate" value="32.63" step="0.01" oninput="saveAndCalcDashboard()" style="width: 80px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 5px;">
+                    <button type="button" id="btn-refresh-rate" onclick="refreshExchangeRate()" style="padding: 6px 10px; font-size: 13px; background-color: #0284c7; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.2s;">
+                        🔄 ดึงเรทล่าสุด
+                    </button>
                 </div>
             </div>
 
@@ -1609,11 +1612,60 @@
             return await fetchStockPriceSingle(symbol);
         }
 
+        window.refreshExchangeRate = async function(silent = false) {
+            const btn = document.getElementById('btn-refresh-rate');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "⏳ กำลังดึงเรท...";
+            }
+            
+            try {
+                const liveRate = await fetchStockPrice('USDTHB=X');
+                if (liveRate && !isNaN(liveRate)) {
+                    document.getElementById('global-rate').value = liveRate.toFixed(2);
+                    // เซฟและคำนวณแดชบอร์ดหลัก
+                    window.saveAndCalcDashboard();
+                    // อัปเดตตารางพอร์ตจริง
+                    if (window.renderTxPortfolio) window.renderTxPortfolio();
+                    
+                    const statusEl = document.getElementById('save-status');
+                    if (statusEl) {
+                        statusEl.innerText = `🟢 อัปเดตเรทเงินล่าสุดแล้ว (${liveRate.toFixed(2)} ฿)`;
+                        statusEl.style.color = "#059669";
+                    }
+                    if (!silent) {
+                        alert(`💵 อัปเดตเรทเงิน USD/THB ล่าสุดจาก Yahoo Finance สำเร็จเรียบร้อยแล้ว: 1 USD = ${liveRate.toFixed(2)} THB`);
+                    }
+                } else {
+                    if (!silent) {
+                        alert("🔴 ไม่สามารถดึงเรทเงินล่าสุดได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง");
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to refresh exchange rate:", e);
+                if (!silent) {
+                    alert("🔴 เกิดข้อผิดพลาดในการดึงเรทเงินแลกเปลี่ยน");
+                }
+            }
+            
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "🔄 ดึงเรทล่าสุด";
+            }
+        }
+
         window.refreshTxPortfolioPrices = async function() {
             const btn = document.getElementById('btn-txp-refresh');
             if (btn) {
                 btn.disabled = true;
                 btn.innerText = "⏳ กำลังดึงข้อมูล...";
+            }
+
+            // ดึงเรทเงินล่าสุด USD/THB ไปพร้อมกันแบบเงียบๆ
+            try {
+                await window.refreshExchangeRate(true);
+            } catch (e) {
+                console.warn("Failed to fetch exchange rate silently:", e);
             }
             
             const rows = document.querySelectorAll('#txp-table-body tr');
@@ -1657,7 +1709,7 @@
                 // แสดงสถานะที่แถบสถานะเซฟ
                 const statusEl = document.getElementById('save-status');
                 if (successCount === totalCount) {
-                    statusEl.innerText = "🟢 อัปเดตราคาตลาดเรียบร้อยแล้ว";
+                    statusEl.innerText = "🟢 อัปเดตราคาตลาดและเรทเงินเรียบร้อยแล้ว";
                     statusEl.style.color = "#059669";
                 } else if (successCount > 0) {
                     statusEl.innerText = `⚠️ อัปเดตสำเร็จ ${successCount}/${totalCount} ตัว (บางตัวขัดข้อง)`;
