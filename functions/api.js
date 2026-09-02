@@ -68,6 +68,7 @@ export async function onRequest(context) {
     try {
       const response = await fetch(url, {
         headers: browserHeaders,
+        signal: AbortSignal.timeout(2500),
         cf: { cacheTtl: 60, cacheEverything: true }
       });
 
