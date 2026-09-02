@@ -12,7 +12,7 @@ export async function onRequest(context) {
     });
   }
 
-  // กรณีเป็นเรทเงิน USD/THB ให้ดึงจาก Exchange Rate API ตรงที่เสถียรและเร็วมาก
+  // 1. กรณีเป็นเรทเงิน USD/THB ให้ดึงจาก Exchange Rate API ตรงที่เสถียรและเร็วมาก
   if (symbolParam.toUpperCase() === 'USDTHB=X' || symbolParam.toUpperCase() === 'USDTHB') {
     try {
       const erRes = await fetch('https://open.er-api.com/v6/latest/USD', {
@@ -42,36 +42,28 @@ export async function onRequest(context) {
           });
         }
       }
-    } catch (e) {
-      // Fallback ไปลอง Yahoo ตามปกติ
-    }
+    } catch (e) {}
   }
 
   const rawSymbols = symbolParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-  const cleanSymbolsStr = encodeURIComponent(rawSymbols.join(','));
+  const cleanSymbolsStr = rawSymbols.join(',');
 
-  const browserHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Origin': 'https://finance.yahoo.com',
-    'Referer': 'https://finance.yahoo.com/',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-site'
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': '*/*'
   };
 
-  // 1. ลองดึงผ่าน Yahoo Spark API (รองรับหลายหุ้นพร้อมกันใน request เดียว และไม่ติด rate limit)
-  const sparkUrls = [
-    `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${cleanSymbolsStr}&range=1d&interval=1d`,
-    `https://query2.finance.yahoo.com/v8/finance/spark?symbols=${cleanSymbolsStr}&range=1d&interval=1d`
+  // 2. ลองดึงผ่าน Yahoo Spark API (รองรับหลายหุ้นพร้อมกันใน request เดียว)
+  const sparkEndpoints = [
+    `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${encodeURIComponent(cleanSymbolsStr)}&range=1d&interval=1d`,
+    `https://query2.finance.yahoo.com/v8/finance/spark?symbols=${encodeURIComponent(cleanSymbolsStr)}&range=1d&interval=1d`
   ];
 
-  for (const sUrl of sparkUrls) {
+  for (const sUrl of sparkEndpoints) {
     try {
       const response = await fetch(sUrl, {
-        headers: browserHeaders,
-        signal: AbortSignal.timeout(3000),
+        headers,
+        signal: AbortSignal.timeout(3500),
         cf: { cacheTtl: 60, cacheEverything: true }
       });
 
@@ -87,13 +79,13 @@ export async function onRequest(context) {
             if (Array.isArray(item.close) && item.close.length > 0) {
               for (let i = item.close.length - 1; i >= 0; i--) {
                 if (item.close[i] !== null && item.close[i] !== undefined && !isNaN(item.close[i])) {
-                  price = item.close[i];
+                  price = Number(item.close[i]);
                   break;
                 }
               }
             }
             if (price === null && item.chartPreviousClose && !isNaN(item.chartPreviousClose)) {
-              price = item.chartPreviousClose;
+              price = Number(item.chartPreviousClose);
             }
             if (price !== null) {
               prices[sym] = price;
@@ -102,7 +94,6 @@ export async function onRequest(context) {
         }
 
         if (Object.keys(prices).length > 0) {
-          // ถ้าขอตัวเดียว ให้สร้าง chart format ให้เข้ากับ frontend เดิมด้วย
           const singleSym = rawSymbols[0];
           const singlePrice = prices[singleSym];
           return new Response(JSON.stringify({
@@ -127,19 +118,19 @@ export async function onRequest(context) {
     } catch (e) {}
   }
 
-  // 2. ถ้า Spark ไม่ผ่าน และเป็นตัวเดียว ให้ลอง Chart API เดิม
+  // 3. Fallback: Chart API สำหรับขอตัวเดียว
   if (rawSymbols.length === 1) {
     const singleSym = encodeURIComponent(rawSymbols[0]);
-    const chartUrls = [
-      `https://query2.finance.yahoo.com/v8/finance/chart/${singleSym}`,
-      `https://query1.finance.yahoo.com/v8/finance/chart/${singleSym}`
+    const chartEndpoints = [
+      `https://query1.finance.yahoo.com/v8/finance/chart/${singleSym}`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${singleSym}`
     ];
 
-    for (const cUrl of chartUrls) {
+    for (const cUrl of chartEndpoints) {
       try {
         const response = await fetch(cUrl, {
-          headers: browserHeaders,
-          signal: AbortSignal.timeout(2500),
+          headers,
+          signal: AbortSignal.timeout(3000),
           cf: { cacheTtl: 60, cacheEverything: true }
         });
 

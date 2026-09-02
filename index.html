@@ -1786,11 +1786,17 @@
                         data = JSON.parse(rawData.contents);
                     }
                     
+                    if (data.price !== undefined && data.price !== null && !isNaN(data.price)) {
+                        return Number(data.price);
+                    }
+                    if (data.prices && data.prices[symbol.toUpperCase()] !== undefined && !isNaN(data.prices[symbol.toUpperCase()])) {
+                        return Number(data.prices[symbol.toUpperCase()]);
+                    }
                     if (data && data.chart && data.chart.result && data.chart.result[0]) {
                         const meta = data.chart.result[0].meta;
                         const price = meta.regularMarketPrice !== undefined ? meta.regularMarketPrice : meta.chartPreviousClose;
                         if (price !== undefined && price !== null && !isNaN(price)) {
-                            return price;
+                            return Number(price);
                         }
                     }
                 } catch (e) {
