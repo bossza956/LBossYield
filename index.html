@@ -1920,33 +1920,78 @@
 
             let successCount = 0;
 
-            // 1. ลองดึงแบบ Batch ครั้งเดียวหมดผ่าน Cloudflare Function /api?symbols=
+            // 1. ลองดึงแบบ Batch ครั้งเดียวหมดผ่าน Cloudflare Function /api
             let batchSuccess = false;
             if (window.location.protocol !== 'file:' && symMap.length > 0) {
-                try {
-                    const symbolsStr = symMap.map(item => item.sym).join(',');
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 4000);
-                    const res = await fetch(`/api?symbols=${encodeURIComponent(symbolsStr)}`, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data && data.prices) {
-                            symMap.forEach(({ sym, priceInput }) => {
-                                if (data.prices[sym] !== undefined && data.prices[sym] !== null && !isNaN(data.prices[sym])) {
-                                    priceInput.value = Number(data.prices[sym]).toFixed(4);
-                                    successCount++;
+                const symbolsStr = symMap.map(item => item.sym).join(',');
+                const endpoints = [
+                    `/api?symbols=${encodeURIComponent(symbolsStr)}`,
+                    `/api?symbol=${encodeURIComponent(symbolsStr)}`
+                ];
+
+                for (const ep of endpoints) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 4000);
+                        const res = await fetch(ep, { signal: controller.signal });
+                        clearTimeout(timeoutId);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && data.prices) {
+                                symMap.forEach(({ sym, priceInput }) => {
+                                    if (data.prices[sym] !== undefined && data.prices[sym] !== null && !isNaN(data.prices[sym])) {
+                                        priceInput.value = Number(data.prices[sym]).toFixed(4);
+                                        successCount++;
+                                    }
+                                });
+                                if (successCount > 0) {
+                                    batchSuccess = true;
+                                    break;
                                 }
-                            });
-                            if (successCount > 0) batchSuccess = true;
+                            }
                         }
-                    }
-                } catch (e) {
-                    console.warn("Batch fetch failed, falling back to single queries:", e);
+                    } catch (e) {}
                 }
             }
 
-            // 2. หาก Batch ไม่ผ่าน ให้ดึงทีละตัวแบบเดิม
+            // 2. หาก Batch ผ่าน /api ไม่ได้ ให้ลอง Batch ผ่าน Allorigins Spark
+            if (!batchSuccess && symMap.length > 0) {
+                try {
+                    const symbolsStr = symMap.map(item => item.sym).join(',');
+                    const rawSparkUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/spark?symbols=' + symbolsStr + '&range=1d&interval=1d')}`;
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    const res = await fetch(rawSparkUrl, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (res.ok) {
+                        const data = await res.json();
+                        symMap.forEach(({ sym, priceInput }) => {
+                            const item = data[sym];
+                            if (item) {
+                                let price = null;
+                                if (Array.isArray(item.close) && item.close.length > 0) {
+                                    for (let i = item.close.length - 1; i >= 0; i--) {
+                                        if (item.close[i] !== null && item.close[i] !== undefined && !isNaN(item.close[i])) {
+                                            price = Number(item.close[i]);
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (price === null && item.chartPreviousClose && !isNaN(item.chartPreviousClose)) {
+                                    price = Number(item.chartPreviousClose);
+                                }
+                                if (price !== null) {
+                                    priceInput.value = price.toFixed(4);
+                                    successCount++;
+                                }
+                            }
+                        });
+                        if (successCount > 0) batchSuccess = true;
+                    }
+                } catch (e) {}
+            }
+
+            // 3. หาก Batch ทั้งหมดไม่ผ่าน ให้ดึงทีละตัวแบบ fallback
             if (!batchSuccess && symMap.length > 0) {
                 const fetchPromises = [];
                 let delay = 0;
