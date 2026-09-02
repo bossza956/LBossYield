@@ -1757,20 +1757,18 @@
         }
 
         async function fetchStockPriceSingle(symbol) {
-            const encodedTarget = encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol);
-            
-            // ลำดับ URL: ลองใช้ Cloudflare Pages Function ก่อน ถ้าล้มเหลวค่อยไปพึ่ง CORS Proxy
+            const cleanSym = encodeURIComponent(symbol);
             const urls = [];
             
-            // ถ้าไม่ใช่ file:// ให้ลองใช้ Cloudflare Pages Function /api ก่อน
+            // ถ้าอยู่บน Cloudflare Pages ให้ใช้ /api เป็นอันดับแรก
             if (window.location.protocol !== 'file:') {
-                urls.push({ type: 'pages-function', url: `/api?symbol=${symbol}`, timeout: 4000 });
+                urls.push({ type: 'pages-function', url: `/api?symbol=${cleanSym}`, timeout: 4000 });
             }
             
             urls.push(
-                { type: 'allorigins', url: `https://api.allorigins.win/get?url=${encodedTarget}`, timeout: 8000 },
-                { type: 'codetabs', url: `https://api.codetabs.com/v1/proxy?quest=https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`, timeout: 5000 },
-                { type: 'corsproxy', url: `https://corsproxy.io/?url=${encodedTarget}`, timeout: 5000 }
+                { type: 'allorigins-q2', url: `https://api.allorigins.win/raw?url=${encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/' + symbol)}`, timeout: 3000 },
+                { type: 'allorigins-q1', url: `https://api.allorigins.win/raw?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol)}`, timeout: 3000 },
+                { type: 'codetabs', url: `https://api.codetabs.com/v1/proxy?quest=https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}`, timeout: 3000 }
             );
             
             for (let item of urls) {
@@ -1784,19 +1782,19 @@
                     
                     const rawData = await res.json();
                     let data = rawData;
-                    if (item.type === 'allorigins') {
+                    if (item.type === 'allorigins-get' && rawData.contents) {
                         data = JSON.parse(rawData.contents);
                     }
                     
                     if (data && data.chart && data.chart.result && data.chart.result[0]) {
-                        const price = data.chart.result[0].meta.regularMarketPrice;
-                        if (price && !isNaN(price)) {
+                        const meta = data.chart.result[0].meta;
+                        const price = meta.regularMarketPrice !== undefined ? meta.regularMarketPrice : meta.chartPreviousClose;
+                        if (price !== undefined && price !== null && !isNaN(price)) {
                             return price;
                         }
                     }
                 } catch (e) {
                     clearTimeout(timeoutId);
-                    console.warn(`Failed to fetch from ${item.type} (${item.url}):`, e);
                 }
             }
             return null;
@@ -1806,9 +1804,40 @@
             let price = await fetchStockPriceSingle(symbol);
             if (price !== null) return price;
             
-            // หากดึงครั้งแรกไม่ผ่าน ให้เว้นจังหวะ 500ms แล้วลองใหม่อีกรอบ (ป้องกันจังหวะชน rate limit หรือเน็ตกระตุก)
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // หากดึงครั้งแรกไม่ผ่าน ให้เว้นจังหวะ 300ms แล้วลองอีกครั้ง
+            await new Promise(resolve => setTimeout(resolve, 300));
             return await fetchStockPriceSingle(symbol);
+        }
+
+        async function fetchLiveExchangeRateUSDTHB() {
+            // 1. ลองดึงจาก Exchange Rate API ตรง (เร็วมาก ~100ms และเปิด CORS สาธารณะ)
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                const res = await fetch('https://open.er-api.com/v6/latest/USD', { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (res.ok) {
+                    const data = await res.json();
+                    const rate = data?.rates?.THB;
+                    if (rate && !isNaN(rate)) return rate;
+                }
+            } catch (e) {}
+
+            // 2. ลองดึงจาก API สำรอง Exchangerate-API
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (res.ok) {
+                    const data = await res.json();
+                    const rate = data?.rates?.THB;
+                    if (rate && !isNaN(rate)) return rate;
+                }
+            } catch (e) {}
+
+            // 3. Fallback ผ่าน Yahoo / Proxy
+            return await fetchStockPrice('USDTHB=X');
         }
 
         window.refreshExchangeRate = async function(silent = false) {
@@ -1819,7 +1848,7 @@
             }
             
             try {
-                const liveRate = await fetchStockPrice('USDTHB=X');
+                const liveRate = await fetchLiveExchangeRateUSDTHB();
                 if (liveRate && !isNaN(liveRate)) {
                     document.getElementById('global-rate').value = liveRate.toFixed(2);
                     // เซฟและคำนวณแดชบอร์ดหลัก
@@ -1833,7 +1862,7 @@
                         statusEl.style.color = "#059669";
                     }
                     if (!silent) {
-                        alert(`💵 อัปเดตเรทเงิน USD/THB ล่าสุดจาก Yahoo Finance สำเร็จเรียบร้อยแล้ว: 1 USD = ${liveRate.toFixed(2)} THB`);
+                        alert(`💵 อัปเดตเรทเงิน USD/THB ล่าสุดสำเร็จเรียบร้อยแล้ว: 1 USD = ${liveRate.toFixed(2)} THB`);
                     }
                 } else {
                     if (!silent) {
@@ -1860,12 +1889,14 @@
                 btn.innerText = "⏳ กำลังดึงข้อมูล...";
             }
 
-            // ดึงเรทเงินล่าสุด USD/THB ไปพร้อมกันแบบเงียบๆ
-            try {
-                await window.refreshExchangeRate(true);
-            } catch (e) {
-                console.warn("Failed to fetch exchange rate silently:", e);
+            const statusEl = document.getElementById('save-status');
+            if (statusEl) {
+                statusEl.innerText = "⏳ กำลังดึงราคาล่าสุดและเรทเงิน...";
+                statusEl.style.color = "#d97706";
             }
+
+            // ดึงเรทเงิน USD/THB ควบคู่กันไปทันที
+            const ratePromise = window.refreshExchangeRate(true).catch(e => console.warn(e));
             
             const rows = document.querySelectorAll('#txp-table-body tr');
             const fetchPromises = [];
@@ -1885,7 +1916,7 @@
                 
                 totalCount++;
                 
-                // ใช้การหน่วงเวลาตัวละ 250ms เพื่อไม่ให้ยิงขอข้อมูลชนกันพร้อมกันทีเดียว (หลีกเลี่ยง rate limits)
+                // หน่วงเวลาเล็กน้อยเพียง 80ms เพื่อส่งคำขออย่างรวดเร็ว
                 const promise = new Promise(resolve => setTimeout(resolve, delay))
                     .then(() => fetchStockPrice(sym))
                     .then(price => {
@@ -1895,9 +1926,11 @@
                         }
                     });
                 fetchPromises.push(promise);
-                delay += 250;
+                delay += 80;
             });
             
+            fetchPromises.push(ratePromise);
+
             if (fetchPromises.length > 0) {
                 await Promise.all(fetchPromises);
                 // สั่งคำนวณใหม่เพื่ออัปเดตหน้าจอทันที
@@ -1905,18 +1938,18 @@
                 // บันทึกราคาที่ดึงมาใหม่ขึ้น Cloud โดยไม่แสดง Alert
                 window.saveAndCalcTxPortfolio(false);
                 
-                // แสดงสถานะที่แถบสถานะเซฟ
-                const statusEl = document.getElementById('save-status');
-                if (successCount === totalCount) {
-                    statusEl.innerText = "🟢 อัปเดตราคาตลาดและเรทเงินเรียบร้อยแล้ว";
-                    statusEl.style.color = "#059669";
-                } else if (successCount > 0) {
-                    statusEl.innerText = `⚠️ อัปเดตสำเร็จ ${successCount}/${totalCount} ตัว (บางตัวขัดข้อง)`;
-                    statusEl.style.color = "#d97706";
-                } else {
-                    statusEl.innerText = "🔴 ดึงข้อมูลราคาล้มเหลว (เกิดข้อผิดพลาดกับเซิร์ฟเวอร์ Proxy)";
-                    statusEl.style.color = "#ef4444";
-                    alert("🔴 ไม่สามารถดึงราคาล่าสุดได้ในขณะนี้เนื่องจากเซิร์ฟเวอร์ CORS Proxy ทั้งหมดปิดกั้นหรือขัดข้อง กรุณาลองใหม่อีกครั้งในภายหลังครับ");
+                if (statusEl) {
+                    if (successCount === totalCount) {
+                        statusEl.innerText = "🟢 อัปเดตราคาตลาดและเรทเงินเรียบร้อยแล้ว";
+                        statusEl.style.color = "#059669";
+                    } else if (successCount > 0) {
+                        statusEl.innerText = `⚠️ อัปเดตสำเร็จ ${successCount}/${totalCount} ตัว`;
+                        statusEl.style.color = "#d97706";
+                    } else {
+                        statusEl.innerText = "🔴 ดึงข้อมูลราคาล้มเหลว กรุณาลองใหม่อีกครั้ง";
+                        statusEl.style.color = "#ef4444";
+                        alert("🔴 ไม่สามารถดึงราคาล่าสุดได้ในขณะนี้ กรุณาลองใหม่อีกครั้งในภายหลังครับ");
+                    }
                 }
             }
             
