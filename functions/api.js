@@ -49,7 +49,8 @@ export async function onRequest(context) {
   const cleanSym = encodeURIComponent(symbol);
   const endpoints = [
     `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}`,
-    `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSym}`
+    `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSym}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/' + cleanSym)}`
   ];
 
   const browserHeaders = {
