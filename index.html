@@ -483,8 +483,9 @@
             </table>
         </div>
 
-        <div class="action-group" style="display: flex; gap: 10px; margin-top: 15px;">
+        <div class="action-group" style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
             <button class="btn-add" onclick="addTxPortfolioRow()">+ เพิ่มรายการหุ้นเริ่มต้น</button>
+            <button class="btn-backup" onclick="restoreKnownRecentPortfolio()" style="background-color: #0284c7; color: white;" title="กู้คืนรายการหุ้นล่าสุด 9 ตัวพร้อมจำนวนและราคา">♻️ กู้คืนหุ้นล่าสุด</button>
             <button class="btn-backup" onclick="saveAndCalcTxPortfolio(true)" style="background-color: #2563eb; color: white;">💾 บันทึกการตั้งค่าพอร์ตจริง</button>
             <button class="btn-backup" id="btn-txp-refresh" onclick="refreshTxPortfolioPrices()" style="background-color: #059669; color: white;">🔄 Refresh</button>
         </div>
@@ -1067,9 +1068,28 @@
                     }
                     if(data.rate) document.getElementById('global-rate').value = data.rate;
                     
-                    // โหลดตารางพอร์ตจริงก่อน เพื่อเป็นฐานในการคำนวณซิงค์
+                    // --- AUTO-RECOVERY & MIGRATION ---
+                    // หาก txSettings ยังว่างอยู่ แต่ data.items มีข้อมูลหุ้นเดิม ให้ย้ายเข้ามาที่ txSettings อัตโนมัติ
+                    const txSettings = window.globalPortfolioData.txSettings || {};
+                    const oldItems = data.items || [];
+                    if (Object.keys(txSettings).length === 0 && oldItems.length > 0) {
+                        oldItems.forEach(item => {
+                            if (item.symbol && item.symbol.trim()) {
+                                const sym = item.symbol.trim().toUpperCase();
+                                txSettings[sym] = {
+                                    initShares: parseFloat(item.shares) || 0,
+                                    initCost: parseFloat(item.cost) || 0,
+                                    price: item.price || '',
+                                    div: item.div || '0',
+                                    freq: item.freq || '12'
+                                };
+                            }
+                        });
+                        window.globalPortfolioData.txSettings = txSettings;
+                    }
+
+                    // 1. โหลดตารางพอร์ตจริงก่อน
                     document.getElementById('txp-table-body').innerHTML = '';
-                    const txSettings = data.txSettings || {};
                     const symbols = Object.keys(txSettings);
                     if (symbols.length > 0) {
                         symbols.forEach(sym => {
@@ -1082,12 +1102,17 @@
                         });
                     }
                     
-                    // ซิงค์จากพอร์ตหุ้นจริงไปยังพอร์ตปันผล
+                    // ดึงรายการหุ้นจากประวัติธุรกรรมมาเติมเต็มตารางพอร์ตจริงให้ครบ
+                    if (window.renderTxPortfolio) {
+                        window.renderTxPortfolio();
+                    }
+
+                    // 2. ซิงค์จากพอร์ตหุ้นจริงไปยังพอร์ตปันผล
                     if (window.syncRealToDividendPortfolio) {
                         window.syncRealToDividendPortfolio();
                     }
                     
-                    // โหลดพอร์ตปันผลที่เชื่อมโยงแล้ว
+                    // 3. โหลดพอร์ตปันผลที่เชื่อมโยงแล้ว
                     document.getElementById('table-body').innerHTML = '';
                     const syncedItems = window.globalPortfolioData.items || [];
                     if (syncedItems.length > 0) {
@@ -1125,6 +1150,36 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
+
+        window.restoreKnownRecentPortfolio = function() {
+            const defaultKnown = {
+                "QQQI": { initShares: 705.2555, initCost: 53.4799, price: "53.965" },
+                "ORCL": { initShares: 4.41178, initCost: 187.5631, price: "143.60" },
+                "O": { initShares: 9.8405165, initCost: 51.99, price: "61.005" },
+                "NVDA": { initShares: 17.5063, initCost: 178.52, price: "222.96" },
+                "JEPQ": { initShares: 120.5467, initCost: 53.972, price: "59.015" },
+                "ADBE": { initShares: 1.8149, initCost: 494.6623, price: "285.818" },
+                "META": { initShares: 10.9713, initCost: 581.9295, price: "597.07" },
+                "NVO": { initShares: 17.28138, initCost: 83.5584, price: "46.80" },
+                "LULU": { initShares: 1.10687, initCost: 258.594, price: "121.285" }
+            };
+            
+            if (confirm('คุณต้องการกู้คืนรายชื่อหุ้น 9 ตัวล่าสุด (QQQI, ORCL, O, NVDA, JEPQ, ADBE, META, NVO, LULU) พร้อมจำนวนหุ้นและต้นทุนที่บันทึกไว้กลับมาทั้งหมดใช่หรือไม่?')) {
+                window.globalPortfolioData.txSettings = defaultKnown;
+                document.getElementById('txp-table-body').innerHTML = '';
+                Object.keys(defaultKnown).forEach(sym => {
+                    window.addTxPortfolioRow({
+                        symbol: sym,
+                        shares: defaultKnown[sym].initShares,
+                        cost: defaultKnown[sym].initCost,
+                        price: defaultKnown[sym].price
+                    });
+                });
+                window.saveAndCalcTxPortfolio(true);
+                if (window.syncRealToDividendPortfolio) window.syncRealToDividendPortfolio();
+                window.renderTxPortfolio();
+            }
+        };
 
         window.importPortfolioBackup = function() {
             const input = document.createElement('input');
