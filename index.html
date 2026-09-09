@@ -1533,7 +1533,7 @@
                 placeholderRow.closest('tr').remove();
             }
 
-            // 1. ตรวจสอบแถวปัจจุบันเพื่อดึงชื่อหุ้นที่แสดงอยู่
+            // 1. ตรวจสอบแถวปัจจุบันเพื่อดึงชื่อหุ้นที่แสดงอยู่ และกำจัดแถวที่ซ้ำกันออกโดยอัตโนมัติ
             const rows = document.querySelectorAll('#txp-table-body tr');
             const presentSymbols = new Set();
             
@@ -1541,7 +1541,14 @@
                 const symInput = tr.querySelector('.txp-symbol');
                 if (symInput) {
                     const sym = symInput.value.trim().toUpperCase();
-                    if (sym) presentSymbols.add(sym);
+                    if (sym) {
+                        if (presentSymbols.has(sym)) {
+                            // หากพบหุ้นชื่อซ้ำกัน ให้ลบแถวที่ซ้ำออกทันที ป้องกันการเขียนทับค่า
+                            tr.remove();
+                            return;
+                        }
+                        presentSymbols.add(sym);
+                    }
                 }
             });
 
@@ -1752,12 +1759,20 @@
             const rows = document.querySelectorAll('#txp-table-body tr');
             const txList = window.globalPortfolioData.transactions || [];
             
+            const processedSymbols = new Set();
             rows.forEach(tr => {
                 const symInput = tr.querySelector('.txp-symbol');
                 if (!symInput) return;
                 
                 const sym = symInput.value.trim().toUpperCase();
                 if (!sym) return;
+                
+                // หากพบหุ้นชื่อซ้ำกันในตาราง ให้ลบแถวซ้ำออกทันทีและข้ามการประมวลผลซ้ำ
+                if (processedSymbols.has(sym)) {
+                    tr.remove();
+                    return;
+                }
+                processedSymbols.add(sym);
                 
                 const currentShares = parseFloat(tr.querySelector('.txp-shares').value) || 0;
                 const currentCost = parseFloat(tr.querySelector('.txp-cost').value) || 0;
