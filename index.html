@@ -1465,61 +1465,97 @@
             const symInput = tr.querySelector('.txp-symbol');
             if (!symInput) return;
             const sym = symInput.value.trim().toUpperCase();
-            if (!sym) return;
 
             const sharesInput = tr.querySelector('.txp-shares');
             const costInput = tr.querySelector('.txp-cost');
+            const priceInput = tr.querySelector('.txp-price');
             if (!sharesInput || !costInput) return;
 
-            const currentShares = parseFloat(sharesInput.value) || 0;
-            const currentCost = parseFloat(costInput.value) || 0;
+            const shares = parseFloat(sharesInput.value) || 0;
+            const cost = parseFloat(costInput.value) || 0;
+            const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
 
-            const txList = window.globalPortfolioData.transactions || [];
+            const totalCost = shares * cost;
+            const marketValue = shares * price;
+            const gainLossVal = marketValue - totalCost;
             
-            // คำนวณยอดสะสมธุรกรรมเพื่อหักล้างหาจุดเริ่มต้น
-            const chronologicalTx = txList
-                .filter(tx => tx.symbol.trim().toUpperCase() === sym)
-                .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+            let gainLossPct = 0;
+            if (totalCost > 0) {
+                gainLossPct = (gainLossVal / totalCost) * 100;
+            }
 
-            let tempShares = 0;
-            let tempCostUSD = 0;
-            let tempAvgCost = 0;
-            chronologicalTx.forEach(tx => {
-                const type = tx.type || 'buy';
-                const sh = parseFloat(tx.shares) || 0;
-                const pr = parseFloat(tx.price) || 0;
+            // อัปเดตตัวเลขในแถวแบบเรียลไทม์โดยไม่เขียนทับช่องอินพุต
+            const totalCostEl = tr.querySelector('.txp-total-cost');
+            const marketValEl = tr.querySelector('.txp-market-value');
+            const gainLossCell = tr.querySelector('.txp-gain-loss');
 
-                if (type === 'buy') {
-                    tempShares += sh;
-                    tempCostUSD += (sh * pr);
-                    tempAvgCost = tempShares > 0 ? (tempCostUSD / tempShares) : 0;
-                } else if (type === 'sell') {
-                    tempShares -= sh;
-                    if (tempShares < 0) tempShares = 0;
-                    tempCostUSD = tempShares * tempAvgCost;
+            if (totalCostEl) totalCostEl.innerText = '$' + formatMoney(totalCost);
+            if (marketValEl) marketValEl.innerText = '$' + formatMoney(marketValue);
+            
+            if (gainLossCell) {
+                const sign = gainLossVal >= 0 ? '+' : '';
+                gainLossCell.innerText = `${sign}$${formatMoney(gainLossVal)} (${sign}${gainLossPct.toFixed(2)}%)`;
+                if (gainLossVal > 0) {
+                    gainLossCell.style.color = '#059669'; // เขียว
+                } else if (gainLossVal < 0) {
+                    gainLossCell.style.color = '#ef4444'; // แดง
+                } else {
+                    gainLossCell.style.color = '';
                 }
+            }
+
+            // อัปเดตยอดรวมสุทธิทั้งพอร์ตด้านล่างแบบเรียลไทม์
+            const rate = parseFloat(document.getElementById('global-rate').value) || 32.63;
+            let sumCostUSD = 0;
+            let sumMarketValueUSD = 0;
+
+            document.querySelectorAll('#txp-table-body tr').forEach(r => {
+                const sh = parseFloat(r.querySelector('.txp-shares')?.value) || 0;
+                const co = parseFloat(r.querySelector('.txp-cost')?.value) || 0;
+                const pr = parseFloat(r.querySelector('.txp-price')?.value) || 0;
+                sumCostUSD += (sh * co);
+                sumMarketValueUSD += (sh * pr);
             });
 
-            // ยอดเริ่มต้น = ยอดปัจจุบันบนจอ - ยอดธุรกรรมสะสม
-            const initShares = Math.max(0, currentShares - tempShares);
-            const finalTotalCost = currentShares * currentCost;
-            const initTotalCost = Math.max(0, finalTotalCost - tempCostUSD);
-            const initCost = initShares > 0 ? (initTotalCost / initShares) : 0;
+            const totalProfitUSD = sumMarketValueUSD - sumCostUSD;
+            const totalProfitPct = sumCostUSD > 0 ? (totalProfitUSD / sumCostUSD) * 100 : 0;
+            const profitSign = totalProfitUSD >= 0 ? '+' : '';
 
-            if (!window.globalPortfolioData.txSettings) {
-                window.globalPortfolioData.txSettings = {};
+            const costUsdEl = document.getElementById('txp-total-cost-usd');
+            const costThbEl = document.getElementById('txp-total-cost-thb');
+            const marketUsdEl = document.getElementById('txp-total-market-usd');
+            const marketThbEl = document.getElementById('txp-total-market-thb');
+            const profitValEl = document.getElementById('txp-total-profit-usd');
+            const profitThbEl = document.getElementById('txp-total-profit-thb');
+            const profitBoxEl = document.getElementById('txp-profit-box');
+            const profitTitleEl = document.getElementById('txp-profit-title');
+
+            if (costUsdEl) costUsdEl.innerText = '$' + formatMoney(sumCostUSD);
+            if (costThbEl) costThbEl.innerText = formatMoney(sumCostUSD * rate) + ' ฿';
+            if (marketUsdEl) marketUsdEl.innerText = '$' + formatMoney(sumMarketValueUSD);
+            if (marketThbEl) marketThbEl.innerText = formatMoney(sumMarketValueUSD * rate) + ' ฿';
+            
+            if (profitValEl) profitValEl.innerText = `${profitSign}$${formatMoney(totalProfitUSD)} (${profitSign}${totalProfitPct.toFixed(2)}%)`;
+            if (profitThbEl) profitThbEl.innerText = `${profitSign}${formatMoney(totalProfitUSD * rate)} ฿`;
+            
+            if (profitBoxEl && profitTitleEl && profitValEl) {
+                if (totalProfitUSD > 0) {
+                    profitBoxEl.style.background = '#f0fdf4';
+                    profitBoxEl.style.borderColor = '#4ade80';
+                    profitTitleEl.style.color = '#047857';
+                    profitValEl.style.color = '#065f46';
+                } else if (totalProfitUSD < 0) {
+                    profitBoxEl.style.background = '#fef2f2';
+                    profitBoxEl.style.borderColor = '#fca5a5';
+                    profitTitleEl.style.color = '#b91c1c';
+                    profitValEl.style.color = '#991b1b';
+                } else {
+                    profitBoxEl.style.background = '#f8fafc';
+                    profitBoxEl.style.borderColor = '#cbd5e1';
+                    profitTitleEl.style.color = '#475569';
+                    profitValEl.style.color = '#334155';
+                }
             }
-            const existingSettings = (window.globalPortfolioData.txSettings || {})[sym] || {};
-            window.globalPortfolioData.txSettings[sym] = {
-                initShares,
-                initCost,
-                price: tr.querySelector('.txp-price').value,
-                div: existingSettings.div || '',
-                freq: existingSettings.freq || '12'
-            };
-
-            // คำนวณหน้าจอใหม่
-            window.renderTxPortfolio();
         }
 
         window.renderTxPortfolio = function() {
