@@ -1676,46 +1676,20 @@
                     return;
                 }
 
-                // ดึงค่าตั้งต้นแมนวล (หุ้นเริ่มต้น & ทุนเริ่มต้น) จาก memory
+                // ดึงค่าคงเหลือที่แท้จริงจาก memory
                 const settings = window.globalPortfolioData.txSettings[sym] || {};
-                const initShares = parseFloat(settings.initShares !== undefined ? settings.initShares : (settings.shares || 0)) || 0;
-                const initCost = parseFloat(settings.initCost !== undefined ? settings.initCost : (settings.cost || 0)) || 0;
+                const currentShares = parseFloat(settings.shares !== undefined ? settings.shares : (settings.initShares || 0)) || 0;
+                const currentCost = parseFloat(settings.cost !== undefined ? settings.cost : (settings.initCost || 0)) || 0;
 
-                // ดึงประวัติธุรกรรมเพื่อถัวเฉลี่ยต่อจากจุดเริ่มต้น
-                const chronologicalTx = txList
-                    .filter(tx => tx.symbol.trim().toUpperCase() === sym)
-                    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-
-                let totalShares = initShares;
-                let totalCostUSD = initShares * initCost;
-                let avgCost = initCost;
-
-                chronologicalTx.forEach(tx => {
-                    const type = tx.type || 'buy';
-                    const shares = parseFloat(tx.shares) || 0;
-                    const price = parseFloat(tx.price) || 0;
-
-                    if (type === 'buy') {
-                        totalShares += shares;
-                        totalCostUSD += (shares * price);
-                        avgCost = totalShares > 0 ? (totalCostUSD / totalShares) : 0;
-                    } else if (type === 'sell') {
-                        totalShares -= shares;
-                        if (totalShares < 0) totalShares = 0;
-                        totalCostUSD = totalShares * avgCost;
-                    }
-                });
-
-                // อัปเดตราคาในช่องกรอก (จำนวนหุ้นคงเหลือ และ ต้นทุนถัวเฉลี่ยต่อหุ้นปัจจุบัน)
-                // ตรวจสอบเพื่อไม่ให้เขียนทับทับตอนที่กำลังพิมพ์ตัวเลข
+                // อัปเดตตัวเลขในช่องกรอกเมื่อไม่ได้กำลังพิมพ์อยู่
                 const sharesInput = tr.querySelector('.txp-shares');
                 const costInput = tr.querySelector('.txp-cost');
 
                 if (document.activeElement !== sharesInput) {
-                    sharesInput.value = totalShares.toFixed(8).replace(/\.?0+$/, '');
+                    sharesInput.value = currentShares.toFixed(8).replace(/\.?0+$/, '');
                 }
                 if (document.activeElement !== costInput) {
-                    costInput.value = avgCost.toFixed(4).replace(/\.?0+$/, '');
+                    costInput.value = currentCost.toFixed(4).replace(/\.?0+$/, '');
                 }
 
                 // ดึงค่าใช้งานจริง (จากอินพุตหน้าจอเพื่อการคำนวณเรียลไทม์ขณะพิมพ์)
@@ -1817,37 +1791,16 @@
                 const div = existingSettings.div || '';
                 const freq = existingSettings.freq || '12';
 
-                // คำนวณหักล้างธุรกรรมย้อนหลังเพื่อหาค่าตั้งต้นดั้งเดิม
-                const chronologicalTx = txList
-                    .filter(tx => tx.symbol.trim().toUpperCase() === sym)
-                    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-
-                let tempShares = 0;
-                let tempCostUSD = 0;
-                let tempAvgCost = 0;
-                chronologicalTx.forEach(tx => {
-                    const type = tx.type || 'buy';
-                    const sh = parseFloat(tx.shares) || 0;
-                    const pr = parseFloat(tx.price) || 0;
-
-                    if (type === 'buy') {
-                        tempShares += sh;
-                        tempCostUSD += (sh * pr);
-                        tempAvgCost = tempShares > 0 ? (tempCostUSD / tempShares) : 0;
-                    } else if (type === 'sell') {
-                        tempShares -= sh;
-                        if (tempShares < 0) tempShares = 0;
-                        tempCostUSD = tempShares * tempAvgCost;
-                    }
-                });
-
-                // ยอดตั้งต้น (Init Shares & Init Cost) = ยอดปัจจุบันบนตาราง - ยอดรวมสะสมจากประวัติธุรกรรม
-                const initShares = Math.max(0, currentShares - tempShares);
-                const finalTotalCost = currentShares * currentCost;
-                const initTotalCost = Math.max(0, finalTotalCost - tempCostUSD);
-                const initCost = initShares > 0 ? (initTotalCost / initShares) : 0;
-                
-                txSettings[sym] = { initShares, initCost, price, div, freq };
+                // บันทึกค่ายอดจริงที่ผู้ใช้กรอกลงในพอร์ตโดยตรง ไม่หักลบเปลี่ยนแปลงยอดหุ้น
+                txSettings[sym] = {
+                    shares: currentShares,
+                    initShares: currentShares,
+                    cost: currentCost,
+                    initCost: currentCost,
+                    price,
+                    div,
+                    freq
+                };
             });
 
             window.globalPortfolioData.txSettings = txSettings;
