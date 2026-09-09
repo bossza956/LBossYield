@@ -286,8 +286,8 @@
                     💡 รายชื่อหุ้น จำนวนหุ้น และต้นทุน จะเชื่อมโยง (Sync) ตาม <strong>พอร์ตหุ้นจริง</strong> เป็นหลักโดยอัตโนมัติ
                 </span>
                 <div class="backup-controls">
-                    <button class="btn-backup" onclick="exportPortfolioBackup()">📥 สำรองข้อมูลพอร์ต</button>
-                    <button class="btn-restore" onclick="importPortfolioBackup()">📤 นำเข้าข้อมูลพอร์ต</button>
+                    <button class="btn-backup" onclick="exportPortfolioBackup()">📤 นำออกข้อมูลทั้งหมด</button>
+                    <button class="btn-restore" onclick="importPortfolioBackup()">📥 นำเข้าข้อมูลทั้งหมด</button>
                 </div>
             </div>
 
@@ -491,6 +491,8 @@
             <button class="btn-backup" onclick="restoreKnownRecentPortfolio()" style="background-color: #0284c7; color: white;" title="กู้คืนรายการหุ้นล่าสุด 9 ตัวพร้อมจำนวนและราคา">♻️ กู้คืนหุ้นล่าสุด</button>
             <button class="btn-backup" onclick="saveAndCalcTxPortfolio(true)" style="background-color: #2563eb; color: white;">💾 บันทึกการตั้งค่าพอร์ตจริง</button>
             <button class="btn-backup" id="btn-txp-refresh" onclick="refreshTxPortfolioPrices()" style="background-color: #059669; color: white;">🔄 Refresh</button>
+            <button class="btn-backup" onclick="exportPortfolioBackup()" style="background-color: #0d9488; color: white;" title="ดาวน์โหลดไฟล์ JSON สำรองข้อมูลทั้งหมด">📤 นำออกข้อมูลทั้งหมด</button>
+            <button class="btn-restore" onclick="importPortfolioBackup()" style="background-color: #475569; color: white;" title="นำเข้าไฟล์ JSON เพื่อกู้คืนข้อมูลทั้งหมด">📥 นำเข้าข้อมูลทั้งหมด</button>
         </div>
 
         <div class="summary-section" style="background: #eff6ff; border-color: #3b82f6; margin-top: 20px;">
@@ -1260,8 +1262,9 @@
                                 calculateAllDashboardUI();
                                 if (window.renderTransactions) window.renderTransactions();
                                 if (window.renderTxPortfolio) window.renderTxPortfolio();
+                                if (window.renderStrategy) window.renderStrategy();
                                 document.getElementById('save-status').innerText = "🟢 ซิงค์ขึ้นคลาวด์เรียบร้อย";
-                                alert('นำเข้าและซิงค์ข้อมูลพอร์ตเรียบร้อยแล้วครับ!');
+                                alert('นำเข้าและซิงค์ข้อมูลทั้งหมดเรียบร้อยแล้วครับ!');
                             }
                         } else {
                             alert('รูปแบบไฟล์สำรองข้อมูลไม่ถูกต้อง');
