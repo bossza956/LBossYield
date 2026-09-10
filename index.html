@@ -1242,6 +1242,11 @@
                     statusEmoji = "🔴";
                 }
 
+                const backupJsonStr = JSON.stringify(window.globalPortfolioData || {}, null, 2);
+                const backupBlob = new Blob([backupJsonStr], { type: 'application/json' });
+                const dateStr = new Date().toISOString().slice(0, 10);
+                const fileName = `L_Boss_Portfolio_CloudBackup_${dateStr}.json`;
+
                 const payload = {
                     username: "L Boss Portfolio Manager",
                     avatar_url: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
@@ -1265,6 +1270,11 @@
                                     name: "📋 สรุปรายการหุ้นคงเหลือในพอร์ต",
                                     value: "```\n" + stockTableText + "\n```",
                                     inline: false
+                                },
+                                {
+                                    name: "💾 ไฟล์สำรองข้อมูล (JSON Backup Attached)",
+                                    value: `📎 แนบไฟล์ \`${fileName}\` มาพร้อมข้อความนี้เรียบร้อยแล้ว\n*(กดดาวน์โหลดไฟล์ .json นี้จาก Discord เพื่อนำไปกู้คืนพอร์ตผ่านปุ่ม "📥 นำเข้าข้อมูลทั้งหมด" ได้ทุกเมื่อ)*`,
+                                    inline: false
                                 }
                             ],
                             footer: {
@@ -1275,10 +1285,14 @@
                     ]
                 };
 
+                // ส่งแบบ Multipart Form Data (แนบไฟล์ JSON เข้า Discord Webhook)
+                const formData = new FormData();
+                formData.append('payload_json', JSON.stringify(payload));
+                formData.append('files[0]', backupBlob, fileName);
+
                 const response = await fetch(DISCORD_WEBHOOK_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: formData
                 });
 
                 if (response.ok || response.status === 204) {
