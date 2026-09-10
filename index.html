@@ -286,6 +286,7 @@
                     💡 รายชื่อหุ้น จำนวนหุ้น และต้นทุน จะเชื่อมโยง (Sync) ตาม <strong>พอร์ตหุ้นจริง</strong> เป็นหลักโดยอัตโนมัติ
                 </span>
                 <div class="backup-controls">
+                    <button class="btn-backup btn-discord" onclick="exportToDiscord()" style="background-color: #5865F2; color: white;" title="ส่งรายงานสรุปพอร์ตเข้า Discord">🚀 ส่งเข้า Discord</button>
                     <button class="btn-backup" onclick="exportPortfolioBackup()">📤 นำออกข้อมูลทั้งหมด</button>
                     <button class="btn-restore" onclick="importPortfolioBackup()">📥 นำเข้าข้อมูลทั้งหมด</button>
                 </div>
@@ -488,8 +489,10 @@
 
         <div class="action-group" style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
             <button class="btn-add" onclick="addTxPortfolioRow()">+ เพิ่มรายการหุ้นเริ่มต้น</button>
+            <button class="btn-backup" onclick="restoreKnownRecentPortfolio()" style="background-color: #0284c7; color: white;" title="กู้คืนรายการหุ้นล่าสุด 9 ตัวพร้อมจำนวนและราคา">♻️ กู้คืนหุ้นล่าสุด</button>
             <button class="btn-backup" onclick="saveAndCalcTxPortfolio(true)" style="background-color: #2563eb; color: white;">💾 บันทึกการตั้งค่าพอร์ตจริง</button>
             <button class="btn-backup" id="btn-txp-refresh" onclick="refreshTxPortfolioPrices()" style="background-color: #059669; color: white;">🔄 Refresh</button>
+            <button class="btn-backup btn-discord" onclick="exportToDiscord()" style="background-color: #5865F2; color: white; display: inline-flex; align-items: center; gap: 6px;" title="ส่งรายงานสรุปพอร์ตและรายการหุ้นเข้า Discord">🚀 ส่งเข้า Discord</button>
             <button class="btn-backup" onclick="exportPortfolioBackup()" style="background-color: #0d9488; color: white;" title="ดาวน์โหลดไฟล์ JSON สำรองข้อมูลทั้งหมด">📤 นำออกข้อมูลทั้งหมด</button>
             <button class="btn-restore" onclick="importPortfolioBackup()" style="background-color: #475569; color: white;" title="นำเข้าไฟล์ JSON เพื่อกู้คืนข้อมูลทั้งหมด">📥 นำเข้าข้อมูลทั้งหมด</button>
         </div>
@@ -1154,6 +1157,151 @@
             if (window.renderTxPortfolio) window.renderTxPortfolio();
             if (window.renderStrategy) window.renderStrategy();
         }
+
+        // --- Export to Discord Webhook ---
+        window.exportToDiscord = async function() {
+            const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1544367620088791110/E7BcYcLkpfSP-GyCcguwYcVCh8l434iuy340cVKgsw9yMcEaqbhfjlg8FOSZe4SAU1Fj";
+            
+            const btnList = document.querySelectorAll('.btn-discord');
+            btnList.forEach(b => {
+                b.disabled = true;
+                b.innerText = "⏳ กำลังส่งเข้า Discord...";
+            });
+
+            try {
+                const rate = parseFloat(document.getElementById('global-rate')?.value) || 32.63;
+                
+                // ข้อมูลพอร์ตหุ้นจริง
+                const txpCostUSD = document.getElementById('txp-total-cost-usd')?.innerText || '$0.00';
+                const txpCostTHB = document.getElementById('txp-total-cost-thb')?.innerText || '0.00 ฿';
+                const txpMarketUSD = document.getElementById('txp-total-market-usd')?.innerText || '$0.00';
+                const txpMarketTHB = document.getElementById('txp-total-market-thb')?.innerText || '0.00 ฿';
+                const txpProfitUSD = document.getElementById('txp-total-profit-usd')?.innerText || '$0.00 (0.00%)';
+                const txpProfitTHB = document.getElementById('txp-total-profit-thb')?.innerText || '0.00 ฿';
+                
+                // ข้อมูลพอร์ตปันผล
+                const divMonthlyNetUSD = document.getElementById('total-monthly-net-usd')?.innerText || '$0.00';
+                const divMonthlyNetTHB = document.getElementById('total-monthly-net-thb')?.innerText || '0.00 ฿';
+                const divAnnualGrossUSD = document.getElementById('total-gross-usd')?.innerText || '$0.00';
+                const divAnnualGrossTHB = document.getElementById('total-gross-thb')?.innerText || '0.00 ฿';
+                const divAnnualNetUSD = document.getElementById('total-net-usd')?.innerText || '$0.00';
+                const divAnnualNetTHB = document.getElementById('total-net-thb')?.innerText || '0.00 ฿';
+
+                // รายละเอียดหุ้นแต่ละตัวในพอร์ตจริง
+                const rows = document.querySelectorAll('#txp-table-body tr');
+                const stockLines = [];
+                
+                rows.forEach(tr => {
+                    const symInput = tr.querySelector('.txp-symbol');
+                    const sharesInput = tr.querySelector('.txp-shares');
+                    const costInput = tr.querySelector('.txp-cost');
+                    const priceInput = tr.querySelector('.txp-price');
+                    const mktValEl = tr.querySelector('.txp-market-value');
+                    const gainLossEl = tr.querySelector('.txp-gain-loss');
+                    
+                    if (symInput && sharesInput && costInput && priceInput) {
+                        const sym = symInput.value.trim().toUpperCase();
+                        const shares = parseFloat(sharesInput.value) || 0;
+                        const cost = parseFloat(costInput.value) || 0;
+                        const price = parseFloat(priceInput.value) || 0;
+                        const mktVal = mktValEl ? mktValEl.innerText : `$${(shares * price).toFixed(2)}`;
+                        const gainLoss = gainLossEl ? gainLossEl.innerText : '$0.00 (0.00%)';
+                        
+                        if (sym && shares > 0) {
+                            stockLines.push({
+                                sym,
+                                shares: shares.toFixed(shares % 1 === 0 ? 0 : 4),
+                                cost: `$${cost.toFixed(2)}`,
+                                price: `$${price.toFixed(2)}`,
+                                mktVal,
+                                gainLoss
+                            });
+                        }
+                    }
+                });
+
+                // สร้างตาราง ASCII ของหุ้น
+                let stockTableText = "ไม่มีรายการหุ้นคงเหลือ";
+                if (stockLines.length > 0) {
+                    const header = `${"หุ้น".padEnd(6)} | ${"จำนวน".padStart(9)} | ${"ทุน".padStart(8)} | ${"ราคา".padStart(8)} | ${"มูลค่า".padStart(11)} | กำไร/ขาดทุน\n` +
+                                   "-".repeat(65);
+                    const body = stockLines.map(s => 
+                        `${s.sym.padEnd(6)} | ${s.shares.padStart(9)} | ${s.cost.padStart(8)} | ${s.price.padStart(8)} | ${s.mktVal.padStart(11)} | ${s.gainLoss}`
+                    ).join('\n');
+                    stockTableText = `${header}\n${body}`;
+                }
+
+                // กำหนดสีและ Emoji ตามสถานะพอร์ต
+                let embedColor = 0x5865F2; // Discord Blurple
+                let statusEmoji = "📊";
+                if (txpProfitUSD.includes('+')) {
+                    embedColor = 0x10B981; // Emerald Green
+                    statusEmoji = "🟢";
+                } else if (txpProfitUSD.includes('-')) {
+                    embedColor = 0xEF4444; // Red
+                    statusEmoji = "🔴";
+                }
+
+                const payload = {
+                    username: "L Boss Portfolio Manager",
+                    avatar_url: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+                    embeds: [
+                        {
+                            title: `${statusEmoji} รายงานสรุปสถานะพอร์ตการลงทุน - L Boss Portfolio`,
+                            description: `🕒 **เวลาที่รายงาน:** ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}\n💵 **อัตราแลกเปลี่ยน:** 1 USD = **${rate.toFixed(2)} THB**`,
+                            color: embedColor,
+                            fields: [
+                                {
+                                    name: "📂 ภาพรวมพอร์ตหุ้นจริง (Real Portfolio)",
+                                    value: `💰 **เงินต้นรวม:** ${txpCostUSD} (${txpCostTHB})\n📈 **มูลค่าตลาด:** ${txpMarketUSD} (${txpMarketTHB})\n${statusEmoji} **กำไร/ขาดทุน:** **${txpProfitUSD}** (${txpProfitTHB})`,
+                                    inline: false
+                                },
+                                {
+                                    name: "💼 สรุปกระแสเงินสดปันผล (Dividend Cashflow)",
+                                    value: `📅 **เฉลี่ยต่อเดือน (Net 15%):** **${divMonthlyNetUSD}** (${divMonthlyNetTHB})\n💵 **รวมทั้งปี (Net 15%):** **${divAnnualNetUSD}** (${divAnnualNetTHB})\n📊 **รวมทั้งปี (Gross):** ${divAnnualGrossUSD} (${divAnnualGrossTHB})`,
+                                    inline: false
+                                },
+                                {
+                                    name: "📋 สรุปรายการหุ้นคงเหลือในพอร์ต",
+                                    value: "```\n" + stockTableText + "\n```",
+                                    inline: false
+                                }
+                            ],
+                            footer: {
+                                text: "L Boss Yield & Investment Dashboard • Firebase Cloud Sync"
+                            },
+                            timestamp: new Date().toISOString()
+                        }
+                    ]
+                };
+
+                const response = await fetch(DISCORD_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok || response.status === 204) {
+                    const statusEl = document.getElementById('save-status');
+                    if (statusEl) {
+                        statusEl.innerText = "🟢 ส่งข้อมูลเข้า Discord เรียบร้อยแล้ว!";
+                        statusEl.style.color = "#5865F2";
+                    }
+                    alert("🚀 ส่งข้อมูลสรุปพอร์ตการลงทุนเข้า Discord สำเร็จเรียบร้อยแล้วครับ!");
+                } else {
+                    const errText = await response.text();
+                    throw new Error(`Discord Error (${response.status}): ${errText}`);
+                }
+            } catch (err) {
+                console.error("Failed to export to Discord:", err);
+                alert(`🔴 ไม่สามารถส่งข้อมูลเข้า Discord ได้: ${err.message}`);
+            } finally {
+                btnList.forEach(b => {
+                    b.disabled = false;
+                    b.innerText = "🚀 ส่งเข้า Discord";
+                });
+            }
+        };
 
         // --- Backup & Restore (ปรับให้ทำงานร่วมกับตัวแปรส่วนกลาง) ---
         window.exportPortfolioBackup = function() {
